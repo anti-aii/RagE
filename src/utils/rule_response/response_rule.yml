@@ -1,0 +1,23 @@
+begin: 
+    - "Xin chào bạn, tôi có thể giúp gì?"
+    - "Hi bạn, tôi có thể giúp gì?"
+    - "Tôi là UTT Assistant, tôi giúp gì được cho bạn?"
+    - "Hello"
+    - "Hi"
+    - "Chào bạn ạ, tôi có thể hỗ trợ được gì ạ?"
+    - "Mình có thể giúp gi được ạ?"
+    - "Em có thể giúp được gì ạ?"
+    - "Hello, mình là trợ lý ảo, bạn tên là gì ạ?"
+
+end: 
+    - "Tạm biệt"
+    - "Bye bạn"
+    - "Hẹn gặp lại bạn lần sau"
+    - "Tạm biệt nha"
+    - "Goodbye"
+    - "Hẹn gặp lại"
+
+nonanswer: 
+    - "Hiện tại tôi chưa thể trả lời được câu hỏi này."
+    - "Tôi không thể trả lời được câu hỏi của bạn do chưa có tri thức."
+    - "Hiện tại tri thức của tôi chưa đủ để có thể trả lời câu hỏi của bạn"

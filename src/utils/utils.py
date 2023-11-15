@@ -35,12 +35,16 @@ class TextFormat:
     
 
 class ResponsewithRule: 
-    def __init__(self): 
+    def __init__(self, path: Type[str]): 
         # load 
-        pass 
+        with open(path, 'r') as f: 
+            self.answers= yaml.full_load(f)
+
     def reply_begin_conversation(self): 
-        pass 
+        return random.choice(self.answers['begin'])
+    
     def reply_nonanswer(self): 
-        pass 
+        return random.choice(self.answers['nonanswer'])
+    
     def reply_close_conversation(self): 
-        pass 
+        return random.choice(self.answers['end'])
