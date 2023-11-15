@@ -1,7 +1,9 @@
 begin: 
     - "Xin chào bạn, tôi có thể giúp gì?"
     - "Hi bạn, tôi có thể giúp gì?"
-    - "Tôi là UTT Assistant, tôi giúp gì được cho bạn?"
+    - "Tôi luôn ở đây để hỗ trợ giải đáp thắc mắc cho bạn ạ."
+    - "Xin chào"
+    - "Bạn cần được giúp gì không ạ?"
     - "Hello"
     - "Hi"
     - "Chào bạn ạ, tôi có thể hỗ trợ được gì ạ?"
