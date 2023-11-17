@@ -72,9 +72,10 @@ class Reranker:
         
         return inputs
 
-    def encode(self, text: List[list[str]]): 
+    def predict(self, text: List[list[str]]): 
         self._preprocess()
-        batch_text= list(map(lambda x: self.tokenizer.sep_token.join(x), text))
+        batch_text= list(map(lambda x: self.tokenizer.sep_token.join(x), 
+                             TextFormat.preprocess_text(text)))
         inputs= self._preprocess_tokenize(batch_text)
 
         embedding= []
@@ -84,7 +85,8 @@ class Reranker:
                 embedding.append(self.model.get_embedding(data['input_ids'], 
                                                     data['attention_mask']))
         
-        return embedding 
+            return nn.Sigmoid()(torch.tensor(embedding))
+        
 
     
     
