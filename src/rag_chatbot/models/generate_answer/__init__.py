@@ -1,1 +1,1 @@
-from .model import GenAnswerModel
+from .model import GenAnsModelCasualLM, GenAnsModelSeq2SeqLM
