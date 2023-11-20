@@ -14,7 +14,7 @@ from ..models import (
     GenAnsModelSeq2SeqLM,
     GenAnsModel
 )
-from ..dataloader import (
+from ..datasets import (
     GenAnsCollate, 
     GenAnsDL, 
     SentABCollate, 
@@ -32,12 +32,11 @@ from ..dataloader import (
 
 class Trainer: 
     def __init__(self, 
-        model, tokenizer_name: Type[str], path_datatrain: str, type_dataset: Type[Dataset], type_collate, device: Type[torch.device], 
-        path_dataeval: str= None, batch_size: int = 8, shuffle: Optional[bool]= True, 
-        num_workers: int= 16, pin_memory: Optional[bool]= True, prefetch_factor: int= 8, 
-        persistent_workers: Optional[bool]= True, gradient_accumlation_steps: int= 16, optimizer= None, 
-        learning_rate: float= 1e-4, weight_decay: Optional[float]= 0.1, eps: Optional[float]= 1e-6,
-        warmup_steps: int= 150, epochs: Optional[int]= 1, path_ckpt_step: Optional[str]= 'checkpoint.pt',
+        model, tokenizer_name: Type[str], path_datatrain: str, device: Type[torch.device], 
+        path_dataeval: str= None, batch_size: int = 8, shuffle: Optional[bool]= True, num_workers: int= 16, 
+        pin_memory: Optional[bool]= True, prefetch_factor: int= 8, persistent_workers: Optional[bool]= True, 
+        gradient_accumlation_steps: int= 16, optimizer= None, learning_rate: float= 1e-4, weight_decay: Optional[float]= 0.1, 
+        eps: Optional[float]= 1e-6, warmup_steps: int= 150, epochs: Optional[int]= 1, path_ckpt_step: Optional[str]= 'checkpoint.pt',
         use_wandb: bool= True  
         ):
 
@@ -48,8 +47,6 @@ class Trainer:
         # dataset
         self.path_datatrain= path_datatrain
         self.path_dataeval= path_dataeval
-        self.type_dataset= type_dataset
-        self.type_collate= type_collate
 
         self.dataloader_train= None
         self.dataloader_eval= None 
@@ -57,7 +54,7 @@ class Trainer:
         self.batch_size= batch_size
         self.shuffle= shuffle
         self.num_workers= num_workers
-        self.pin_memoory= pin_memory
+        self.pin_memory= pin_memory
         self.prefetch_factor= prefetch_factor
         self.persistent_workers= persistent_workers 
         self.grad_accum= gradient_accumlation_steps 
@@ -71,7 +68,6 @@ class Trainer:
         self.device= device 
 
         # optim 
-        self.optimizer= None 
         self.scheduler= None 
         self.total_steps= None 
         self.optimizer= optimizer 
@@ -88,14 +84,14 @@ class Trainer:
     def _setup_dataset(self): 
         train_dataset= self.type_dataset(self.path_datatrain)
         self.dataloader_train= DataLoader(train_dataset, batch_size= self.batch_size,
-                                          collate_fn= self.type_collate(self.tokenizer_name), shuffle= self.shuffle,
-                                          num_workers= self.num_workers, pin_memory= self.pin_memoory, 
+                                          collate_fn= self.collate, shuffle= self.shuffle,
+                                          num_workers= self.num_workers, pin_memory= self.pin_memory, 
                                           prefetch_factor= self.prefetch_factor, persistent_workers= self.persistent_workers)
         
         if self.path_dataeval: 
             eval_dataset= self.type_dataset(self.path_dataeval)
             self.dataloader_eval= DataLoader(eval_dataset, batch_size= self.batch_size,
-                                             collate_fn= self.type_collate(self.tokenizer_name), shuffle= False)
+                                             collate_fn= self.collate, shuffle= False)
     
     def _setup_optim(self): 
         self.optimizer= self.optimizer(self.model_lm.model.parameters(), self.lr, weight_decay= self.weight_decay, 
@@ -217,16 +213,19 @@ class Trainer:
         
 
 class TrainerGenAns(Trainer):
-    def __init__(self, model: Type[GenAnsModel], tokenizer_name: type[str], path_datatrain: str, type_dataset: Type[GenAnsDL], 
-                 type_collate: Type[GenAnsCollate], device: type[torch.device], path_dataeval: str = None, batch_size: int = 8, shuffle: bool | None = True, 
+    def __init__(self, model: Type[GenAnsModel], tokenizer_name: type[str], path_datatrain: str, 
+                device: type[torch.device], path_dataeval: str = None, batch_size: int = 8, shuffle: bool | None = True, 
                  num_workers: int = 16, pin_memory: bool | None = True, prefetch_factor: int = 8, persistent_workers: bool | None = True, 
                  gradient_accumlation_steps: int = 16, optimizer=None, learning_rate: float = 0.0001, weight_decay: float | None = 0.1, 
                  eps: float | None = 0.000001, warmup_steps: int = 150, epochs: int | None = 1, path_ckpt_step: str | None = 'checkpoint.pt', 
                  use_wandb: bool = True):
         
-        super().__init__(model, tokenizer_name, path_datatrain, type_dataset, type_collate, device, path_dataeval, 
+        super().__init__(model, tokenizer_name, path_datatrain, device, path_dataeval, 
                          batch_size, shuffle, num_workers, pin_memory, prefetch_factor, persistent_workers, gradient_accumlation_steps, optimizer, 
                          learning_rate, weight_decay, eps, warmup_steps, epochs, path_ckpt_step, use_wandb)
+        
+        self.type_dataset= GenAnsDL
+        self.collate= GenAnsCollate(self.tokenizer_name)
     
     def _compute_loss(self, data):
         loss= self.model_lm(input_ids= data['x_ids'].to(self.device, non_blocking=True), 
@@ -250,14 +249,14 @@ class TrainerGenAns(Trainer):
         
 
 class TrainerBiEncoder(Trainer):
-    def __init__(self, model: Type[BiEncoder], tokenizer_name: type[str], path_datatrain: str, type_dataset: Type[SentABDL], 
-                 type_collate: Type[SentABCollate], device: type[torch.device], path_dataeval: str = None, batch_size: int = 8, shuffle: bool | None = True, 
+    def __init__(self, model: Type[BiEncoder], tokenizer_name: type[str], path_datatrain: str, 
+                 device: type[torch.device], path_dataeval: str = None, batch_size: int = 8, shuffle: bool | None = True, 
                  num_workers: int = 16, pin_memory: bool | None = True, prefetch_factor: int = 8, persistent_workers: bool | None = True, 
                  gradient_accumlation_steps: int = 16, optimizer=None, learning_rate: float = 0.0001, weight_decay: float | None = 0.1, 
                  eps: float | None = 0.000001, warmup_steps: int = 150, epochs: int | None = 1, path_ckpt_step: str | None = 'checkpoint.pt', loss: str = 'cosine_embedding', 
                  use_wandb: bool = True):
         
-        super().__init__(model, tokenizer_name, path_datatrain, type_dataset, type_collate, device, path_dataeval, 
+        super().__init__(model, tokenizer_name, path_datatrain, device, path_dataeval, 
                          batch_size, shuffle, num_workers, pin_memory, prefetch_factor, persistent_workers, gradient_accumlation_steps, optimizer, 
                          learning_rate, weight_decay, eps, warmup_steps, epochs, path_ckpt_step, use_wandb)
         
@@ -268,6 +267,9 @@ class TrainerBiEncoder(Trainer):
             self.criterion= nn.CrossEntropyLoss(label_smoothing= 0.1)
         elif loss == 'cosine_embedding': 
             self.criterion= nn.CosineEmbeddingLoss()
+
+        self.type_dataset= SentABDL
+        self.collate= SentABCollate(self.tokenizer_name, mode= "retrieval")
 
     def _compute_loss(self, data):
         output= self.model_lm(
@@ -294,14 +296,14 @@ class TrainerBiEncoder(Trainer):
     
 
 class TrainerCrossEncoder(Trainer):
-    def __init__(self, model:Type[CrossEncoder], tokenizer_name: type[str], path_datatrain: str, type_dataset: Type[SentABDL], 
-                 type_collate:Type[SentABCollate], device: type[torch.device], path_dataeval: str = None, batch_size: int = 8, shuffle: bool | None = True, 
+    def __init__(self, model:Type[CrossEncoder], tokenizer_name: type[str], path_datatrain: str, 
+                 device: type[torch.device], path_dataeval: str = None, batch_size: int = 8, shuffle: bool | None = True, 
                  num_workers: int = 16, pin_memory: bool | None = True, prefetch_factor: int = 8, persistent_workers: bool | None = True, 
                  gradient_accumlation_steps: int = 16, optimizer=None, learning_rate: float = 0.0001, weight_decay: float | None = 0.1, 
-                 eps: float | None = 0.000001, warmup_steps: int = 150, epochs: int | None = 1, path_ckpt_step: str | None = 'checkpoint.pt', loss: str= 'sigmoid',
+                 eps: float | None = 0.000001, warmup_steps: int = 150, epochs: int | None = 1, path_ckpt_step: str | None = 'checkpoint.pt', loss: str= 'sigmoid_crossentropy',
                  use_wandb: bool = True):
         
-        super().__init__(model, tokenizer_name, path_datatrain, type_dataset, type_collate, device, path_dataeval, 
+        super().__init__(model, tokenizer_name, path_datatrain, device, path_dataeval, 
                          batch_size, shuffle, num_workers, pin_memory, prefetch_factor, persistent_workers, gradient_accumlation_steps, optimizer, 
                          learning_rate, weight_decay, eps, warmup_steps, epochs, path_ckpt_step, use_wandb)
         
@@ -310,6 +312,9 @@ class TrainerCrossEncoder(Trainer):
             self.criterion= nn.BCELoss()
         elif loss== 'categorical_crossentropy': 
             self.criterion= nn.CrossEntropyLoss(label_smoothing= 0.1)
+
+        self.type_dataset= SentABDL
+        self.collate= SentABCollate(self.tokenizer_name, mode= "cross_encoder")
         
     def _compute_loss(self, data):
         output= self.model_lm(dict((i, j.to(self.device, non_blocking=True)) for i, j in data.items()))

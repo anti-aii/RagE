@@ -8,7 +8,7 @@ from .models import (
     GenAnsModelSeq2SeqLM
 )
 
-from .dataloader import (
+from .datasets import (
     SentABDL, 
     SentABCollate,
     GenAnsDL, 
@@ -29,4 +29,4 @@ from .trainer import (
 
 
 
-__version__= "0.3.4"
+__version__= "0.4.1"
