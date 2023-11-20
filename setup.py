@@ -16,7 +16,7 @@ with open("README.MD", 'r', encoding= 'utf-8') as f:
 
 setup(
     name='rag_chatbot',
-    version= '0.3.2', 
+    version= '0.3.4', 
     description= 'RAG - Chatbot Vietnamese', 
     long_description= long_description,
     author= 'DatNT (Nguyễn Tiến Đạt)', 
