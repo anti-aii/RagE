@@ -269,12 +269,12 @@ class TrainerBiEncoder(Trainer):
             self.criterion= nn.CosineEmbeddingLoss()
 
         self.type_dataset= SentABDL
-        self.collate= SentABCollate(self.tokenizer_name, mode= "retrieval")
+        self.collate= SentABCollate(self.tokenizer_name, mode= "bi_encoder")
 
     def _compute_loss(self, data):
         output= self.model_lm(
-            dict((i, j.to(self.device, non_blocking=True)) for i, j in data['x_1'].items()),
-            dict((i, j.to(self.device, non_blocking=True)) for i, j in data['x_2'].items())
+            dict((i, j.to(self.device, non_blocking=True)) for i, j in data['x_1'].items() if i in ['input_ids', 'attention_mask']),
+            dict((i, j.to(self.device, non_blocking=True)) for i, j in data['x_2'].items() if i in ['input_ids', 'attention_mask'])
         )
         
         loss= self.criterion(output, labels= data['label'].to(self.device, non_blocking=True))
@@ -317,7 +317,9 @@ class TrainerCrossEncoder(Trainer):
         self.collate= SentABCollate(self.tokenizer_name, mode= "cross_encoder")
         
     def _compute_loss(self, data):
-        output= self.model_lm(dict((i, j.to(self.device, non_blocking=True)) for i, j in data.items()))
+        output= self.model_lm(dict(
+            (i, j.to(self.device, non_blocking=True)) for i, j in data['x'].items() if i in ['input_ids', 'attention_mask'])
+        )
         
         loss= self.criterion(output, labels= data['label'].to(self.device, non_blocking=True))
         
