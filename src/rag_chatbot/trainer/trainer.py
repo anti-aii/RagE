@@ -312,8 +312,7 @@ class TrainerCrossEncoder(Trainer):
             self.criterion= nn.CrossEntropyLoss(label_smoothing= 0.1)
         
     def _compute_loss(self, data):
-        output= self.model_lm(ids= data['x_ids'].to(self.device, non_blocking=True), 
-                          mask= data['x_mask'].to(self.device, non_blocking=True))
+        output= self.model_lm(dict((i, j.to(self.device, non_blocking=True)) for i, j in data.items()))
         
         loss= self.criterion(output, labels= data['label'].to(self.device, non_blocking=True))
         

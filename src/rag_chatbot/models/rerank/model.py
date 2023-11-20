@@ -12,6 +12,7 @@ class CrossEncoder(nn.Module):
                  dropout= 0.1, hidden_dim= 768, num_label= 1):
         super(CrossEncoder, self).__init__()
         self.model= AutoModel.from_pretrained(model_name, output_hidden_states= True)
+        
 
         if required_grad:
             self.model.requires_grad_(False)
@@ -31,8 +32,8 @@ class CrossEncoder(nn.Module):
         nn.init.xavier_uniform_(self.fc.weight)
         nn.init.zeros_(self.fc.bias)
 
-    def get_embedding(self, ids, mask):
-        embedding_bert= self.model(ids, mask)
+    def get_embedding(self, inputs):
+        embedding_bert= self.model(**inputs)
         embedding_enhance= self.extract(embedding_bert.hidden_states)
 
         # x= self.lnrom(embedding_enhance)
@@ -42,8 +43,8 @@ class CrossEncoder(nn.Module):
         return x 
     
     
-    def forward(self, ids, mask): 
-        x= self.get_embedding(ids, mask)
+    def forward(self, inputs): 
+        x= self.get_embedding(inputs)
         x= self.drp2(x)
         x= self.fc(x)
 
@@ -54,13 +55,15 @@ class CrossEncoder(nn.Module):
 ### ReRanker 
 class Reranker: 
     def __init__(self, model_name='vinai/phobert-base-v2', required_grad=False, 
-                 dropout=0.1, hidden_dim=768, num_label=1):
+                 dropout=0.1, hidden_dim=768, num_label=1, torch_dtype= torch.float16, device= None):
 
         self.model= CrossEncoder(model_name, required_grad, dropout, hidden_dim, num_label)
+        self.model.to(device, dtype= torch_dtype)
         self.tokenizer= AutoTokenizer.from_pretrained(model_name, add_prefix_space= True, use_fast= True)
+        self.device= device
 
     def load_ckpt(self, path):
-        self.model.load_state_dict(torch.load(path))
+        self.model.load_state_dict(torch.load(path, map_location= self.device))
 
     def _preprocess(self):
         if self.model.training: 
@@ -72,20 +75,18 @@ class Reranker:
         
         return inputs
 
-    def predict(self, text: List[list[str]]): 
+    def predict(self, text: List[list[str]]):  # [[a, b], [c, d]]
         self._preprocess()
-        batch_text= list(map(lambda x: self.tokenizer.sep_token.join(x), 
-                             TextFormat.preprocess_text(text)))
+        batch_text= list(map(lambda x: self.tokenizer.sep_token.join([TextFormat.preprocess_text(x[0]), 
+                                                                      TextFormat.preprocess_text(x[1])]), 
+                             text))
+
         inputs= self._preprocess_tokenize(batch_text)
 
-        embedding= []
-
         with torch.no_grad(): 
-            for idx, data in enumerate(inputs): 
-                embedding.append(self.model.get_embedding(data['input_ids'], 
-                                                    data['attention_mask']))
+            embedding= self.model(dict( (i, j.to(self.device)) for i,j in inputs.items()))
         
-            return nn.Sigmoid()(torch.tensor(embedding))
+        return nn.Sigmoid()(torch.tensor(embedding))
         
 
     
