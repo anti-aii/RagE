@@ -76,6 +76,12 @@ class GenAnsModel:
     def  return_state(self):
         return self._state
     
+    def eval(self):
+        self.model.eval()
+    
+    def train(self):
+        self.model.train()
+    
     def _save_ckpt(self, ckpt_dir: Optional[str]= 'ckpt_lora.pt'): 
         ## only save lora parameters 
         torch.save({'lora': lora.lora_state_dict(self.model)}, ckpt_dir)

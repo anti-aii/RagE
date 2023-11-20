@@ -52,10 +52,8 @@ class SentABCollate:
             x2= self._tokenize(sent2)
 
             return {
-                'x_ids_1': x1['input_ids'],
-                'x_mask_1': x1['attention_mask'], 
-                'x_ids_2': x2['input_ids'], 
-                'x_mask_2': x2['attention_mask'],
+                'x_1': x1,
+                'x_2': x2, 
                 'label': label 
             }
 

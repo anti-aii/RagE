@@ -29,7 +29,7 @@ class BiEncoder(nn.Module):
         nn.init.zeros_(self.fc.bias)
 
     def get_embedding(self, inputs): 
-        embedding_bert= self.model(inputs)
+        embedding_bert= self.model(**inputs)
         embedding_enhance= self.extract(embedding_bert.hidden_states)
 
         # x= self.lnrom(embedding_enhance)
@@ -51,6 +51,7 @@ class BiEncoder(nn.Module):
         return x 
 
 ### Sentence Bert
+### By default, while training sentence bert, we use cosine similarity loss 
 class SentenceBert: 
     def __init__(self, model_name= 'vinai/phobert-base-v2', required_grad= True, 
                  dropout= 0.1, hidden_dim= 768): 
