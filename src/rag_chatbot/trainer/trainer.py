@@ -277,7 +277,7 @@ class TrainerBiEncoder(Trainer):
             dict((i, j.to(self.device, non_blocking=True)) for i, j in data['x_2'].items() if i in ['input_ids', 'attention_mask'])
         )
         
-        loss= self.criterion(output, labels= data['label'].to(self.device, non_blocking=True))
+        loss= self.criterion(output, data['label'].to(self.device, non_blocking=True))
         
         return loss 
     
@@ -321,7 +321,7 @@ class TrainerCrossEncoder(Trainer):
             (i, j.to(self.device, non_blocking=True)) for i, j in data['x'].items() if i in ['input_ids', 'attention_mask'])
         )
         
-        loss= self.criterion(output, labels= data['label'].to(self.device, non_blocking=True))
+        loss= self.criterion(output, data['label'].to(self.device, non_blocking=True))
         
         return loss 
     
