@@ -11,6 +11,7 @@ class BiEncoder(nn.Module):
         super(BiEncoder, self).__init__()
 
         self.model= AutoModel.from_pretrained(model_name, output_hidden_states= True)
+
         if require_grad:
             self.model.requires_grad_(False)
     
@@ -54,13 +55,15 @@ class BiEncoder(nn.Module):
 ### By default, while training sentence bert, we use cosine similarity loss 
 class SentenceBert: 
     def __init__(self, model_name= 'vinai/phobert-base-v2', required_grad= True, 
-                 dropout= 0.1, hidden_dim= 768): 
+                 dropout= 0.1, hidden_dim= 768, torch_dtype= torch.float16, device= None):
     
         self.model= BiEncoder(model_name, required_grad, dropout, hidden_dim)
+        self.model.to(device, dtype= torch_dtype)
         self.tokenizer= AutoTokenizer.from_pretrained(model_name, use_fast= True, add_prefix_space= True)
+        self.device= device 
     
     def load_ckpt(self, path): 
-        self.model.load_state_dict(torch.load(path))
+        self.model.load_state_dict(torch.load(path, map_location= self.device))
     
     def _preprocess(self): 
         if self.model.training: 
@@ -77,12 +80,10 @@ class SentenceBert:
 
         batch_text= list(map(lambda x: TextFormat.preprocess_text(x), text))
         inputs= self._preprocess_tokenize(batch_text)
+        # print(inputs)
 
-        embedding= [] 
         with torch.no_grad(): 
-            for idx, data in enumerate(inputs): 
-                embedding.append(self.model.get_embedding(data['input_ids'], 
-                                                    data['attention_mask']))
+            embedding= self.model.get_embedding(dict( (i, j.to(self.device)) for i,j in inputs.items()))
                 
         return torch.tensor(embedding) 
 
