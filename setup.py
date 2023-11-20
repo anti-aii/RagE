@@ -11,17 +11,17 @@ _dep= ["transformers>= 4.31.0",
 
 ]
 
-with open("README.MD", 'r', encoding= 'utf-8') as f: 
+with open("README.md", 'r', encoding= 'utf-8') as f: 
     long_description= f.read() 
 
 setup(
     name='rag_chatbot',
     version= '0.3.4', 
-    description= 'RAG - Chatbot Vietnamese', 
+    description= 'A library that supports building the fastest and lightest chatbot or Q&A system for Vietnamese, using Retrieval Augmented Generation (RAG)', 
     long_description= long_description,
-    author= 'DatNT (Nguyễn Tiến Đạt)', 
+    author= 'Nguyễn Tiến Đạt', 
     author_email= 'nduc0231@gmail.com', 
-    maintainer= 'Nguyễn Tiến Đạt - DatNT',
+    maintainer= 'Nguyễn Tiến Đạt',
     packages= find_packages("src"), 
     package_dir= {'': 'src'},
     package_data={"": ['**/*.yml']},
