@@ -260,9 +260,12 @@ class TrainerBiEncoder(Trainer):
                          batch_size, shuffle, num_workers, pin_memory, prefetch_factor, persistent_workers, gradient_accumlation_steps, optimizer, 
                          learning_rate, weight_decay, eps, warmup_steps, epochs, path_ckpt_step, use_wandb)
         
+
+        self.loss= loss 
+
         assert loss in ['sigmoid_crossentropy', 'categorical_crossentropy', 'cosine_embedding']
         if loss == 'sigmoid_crossentropy': 
-            self.criterion= nn.BCELoss()
+            self.criterion= nn.BCEWithLogitsLoss()
         elif loss== 'categorical_crossentropy': 
             self.criterion= nn.CrossEntropyLoss(label_smoothing= 0.1)
         elif loss == 'cosine_embedding': 
@@ -277,7 +280,12 @@ class TrainerBiEncoder(Trainer):
             dict((i, j.to(self.device, non_blocking=True)) for i, j in data['x_2'].items() if i in ['input_ids', 'attention_mask'])
         )
         
-        loss= self.criterion(output, data['label'].to(self.device, non_blocking=True))
+        label= data['label'].to(self.device, non_blocking=True)
+        
+        if self.loss== 'sigmoid_crossentropy':
+            label= label.to(dtype= torch.float32)
+
+        loss= self.criterion(output, label)
         
         return loss 
     
@@ -307,9 +315,10 @@ class TrainerCrossEncoder(Trainer):
                          batch_size, shuffle, num_workers, pin_memory, prefetch_factor, persistent_workers, gradient_accumlation_steps, optimizer, 
                          learning_rate, weight_decay, eps, warmup_steps, epochs, path_ckpt_step, use_wandb)
         
+        self.loss= loss
         assert loss in ['sigmoid_crossentropy', 'categorical_crossentropy']
         if loss == 'sigmoid_crossentropy': 
-            self.criterion= nn.BCELoss()
+            self.criterion= nn.BCEWithLogitsLoss()
         elif loss== 'categorical_crossentropy': 
             self.criterion= nn.CrossEntropyLoss(label_smoothing= 0.1)
 
@@ -321,7 +330,12 @@ class TrainerCrossEncoder(Trainer):
             (i, j.to(self.device, non_blocking=True)) for i, j in data['x'].items() if i in ['input_ids', 'attention_mask'])
         )
         
-        loss= self.criterion(output, data['label'].to(self.device, non_blocking=True))
+        label= data['label'].to(self.device, non_blocking=True)
+        
+        if self.loss== 'sigmoid_crossentropy':
+            label= label.to(dtype= torch.float32)
+
+        loss= self.criterion(output, label)
         
         return loss 
     
