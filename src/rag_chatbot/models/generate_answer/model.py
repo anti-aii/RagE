@@ -112,6 +112,9 @@ class GenAnsModel:
         self.model.to(self.device)
         self.model.train()
         self._state= 'finetune'
+    
+    def parameters(self): 
+        return self.model.parameters()
 
     def gen(self, text, config_gen= None): 
         if self._state != 'infer': 

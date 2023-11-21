@@ -22,7 +22,7 @@ class SentABDL(Dataset):
     
 class SentABCollate: 
     def __init__(self, tokenizer_name: str= 'vinai/phobert-base-v2',
-                    mode: str= 'retrieval'):
+                    mode: str= 'cross_encoder'):
         assert mode in ['bi_encoder', 'cross_encoder']
         self.tokenizer= AutoTokenizer.from_pretrained(tokenizer_name, add_prefix_space= True,
                                                       use_fast= True)

@@ -6,7 +6,7 @@ from ...utils import TextFormat
 
 ### Bi-encoder 
 class BiEncoder(nn.Module):
-    def __init__(self, model_name= 'vinai/phobert-base-v2', require_grad= False, 
+    def __init__(self, model_name= 'vinai/phobert-base-v2', require_grad= True, 
                  dropout= 0.1, hidden_dim= 768):
         super(BiEncoder, self).__init__()
 

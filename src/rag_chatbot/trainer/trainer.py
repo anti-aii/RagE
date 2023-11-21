@@ -5,6 +5,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 from torch.cuda.amp import autocast, GradScaler 
 from transformers.optimization import get_cosine_schedule_with_warmup
+from bitsandbytes.optim import PagedAdamW8bit
 import loralib as lora 
 import wandb 
 from ..models import (
@@ -35,7 +36,7 @@ class Trainer:
         model, tokenizer_name: Type[str], path_datatrain: str, device: Type[torch.device], 
         path_dataeval: str= None, batch_size: int = 8, shuffle: Optional[bool]= True, num_workers: int= 16, 
         pin_memory: Optional[bool]= True, prefetch_factor: int= 8, persistent_workers: Optional[bool]= True, 
-        gradient_accumlation_steps: int= 16, optimizer= None, learning_rate: float= 1e-4, weight_decay: Optional[float]= 0.1, 
+        gradient_accumlation_steps: int= 16, learning_rate: float= 1e-4, weight_decay: Optional[float]= 0.1, 
         eps: Optional[float]= 1e-6, warmup_steps: int= 150, epochs: Optional[int]= 1, path_ckpt_step: Optional[str]= 'checkpoint.pt',
         use_wandb: bool= True  
         ):
@@ -70,7 +71,7 @@ class Trainer:
         # optim 
         self.scheduler= None 
         self.total_steps= None 
-        self.optimizer= optimizer 
+        self.optimizer= None
 
         # mixer precision 
         self.scaler= None 
@@ -94,7 +95,7 @@ class Trainer:
                                              collate_fn= self.collate, shuffle= False)
     
     def _setup_optim(self): 
-        self.optimizer= self.optimizer(self.model_lm.model.parameters(), self.lr, weight_decay= self.weight_decay, 
+        self.optimizer= PagedAdamW8bit(self.model_lm.parameters(), self.lr, weight_decay= self.weight_decay, 
                                       eps= self.eps)
         step_epoch = len(self.dataloader_train)
         self.total_steps= int(step_epoch / self.grad_accum) * self.epochs
@@ -122,9 +123,7 @@ class Trainer:
         step_loss, step_fr= 0, 0 
         for idx, data in enumerate(self.dataloader_train): 
             with autocast():
-
                 loss= self._compute_loss(data)
-
                 loss /= self.grad_accum
             self.scaler.scale(loss).backward()
 
@@ -133,7 +132,7 @@ class Trainer:
 
             if ((idx + 1) % self.grad_accum == 0) or (idx + 1 ==len(self.dataloader_train)): 
                 self.scaler.unscale_(self.optimizer)
-                torch.nn.utils.clip_grad_norm_(self.model_lm.model.parameters(), 1.) 
+                torch.nn.utils.clip_grad_norm_(self.model_lm.parameters(), 1.) 
                 self.scaler.step(self.optimizer)
                 self.scaler.update()
                 self.optimizer.zero_grad(set_to_none= True)
@@ -151,11 +150,18 @@ class Trainer:
                 step_fr = 0 
 
             if (idx + 1) % step_save ==0:
-                self._save_ckpt({'step': idx + 1,
-                            'lora': lora.lora_state_dict(self.model_lm.model),
-                            'optimizer_state_dict': self.optimizer.state_dict(),
-                            'scheduler': self.scheduler.state_dict(),    # HERE IS THE CHANGE
-                                },  self.ckpt_step)
+                if isinstance(self.model_lm, GenAnsModel):
+                    self._save_ckpt({'step': idx + 1,
+                                'lora': lora.lora_state_dict(self.model_lm.model),
+                                'optimizer_state_dict': self.optimizer.state_dict(),
+                                'scheduler': self.scheduler.state_dict(),    # HERE IS THE CHANGE
+                                    },  self.ckpt_step)
+                else: 
+                    self._save_ckpt({'step': idx + 1,
+                                'model_state_dict': self.model_lm.state_dict(),
+                                'optimizer_state_dict': self.optimizer.state_dict(),
+                                'scheduler': self.scheduler.state_dict(),    # HERE IS THE CHANGE
+                                    },  self.ckpt_step)
         
         return (total_loss / total_count) * self.grad_accum
     
@@ -216,12 +222,12 @@ class TrainerGenAns(Trainer):
     def __init__(self, model: Type[GenAnsModel], tokenizer_name: type[str], path_datatrain: str, 
                 device: type[torch.device], path_dataeval: str = None, batch_size: int = 8, shuffle: bool | None = True, 
                  num_workers: int = 16, pin_memory: bool | None = True, prefetch_factor: int = 8, persistent_workers: bool | None = True, 
-                 gradient_accumlation_steps: int = 16, optimizer=None, learning_rate: float = 0.0001, weight_decay: float | None = 0.1, 
+                 gradient_accumlation_steps: int = 16, learning_rate: float = 0.0001, weight_decay: float | None = 0.1, 
                  eps: float | None = 0.000001, warmup_steps: int = 150, epochs: int | None = 1, path_ckpt_step: str | None = 'checkpoint.pt', 
                  use_wandb: bool = True):
         
         super().__init__(model, tokenizer_name, path_datatrain, device, path_dataeval, 
-                         batch_size, shuffle, num_workers, pin_memory, prefetch_factor, persistent_workers, gradient_accumlation_steps, optimizer, 
+                         batch_size, shuffle, num_workers, pin_memory, prefetch_factor, persistent_workers, gradient_accumlation_steps,
                          learning_rate, weight_decay, eps, warmup_steps, epochs, path_ckpt_step, use_wandb)
         
         self.type_dataset= GenAnsDL
@@ -252,12 +258,12 @@ class TrainerBiEncoder(Trainer):
     def __init__(self, model: Type[BiEncoder], tokenizer_name: type[str], path_datatrain: str, 
                  device: type[torch.device], path_dataeval: str = None, batch_size: int = 8, shuffle: bool | None = True, 
                  num_workers: int = 16, pin_memory: bool | None = True, prefetch_factor: int = 8, persistent_workers: bool | None = True, 
-                 gradient_accumlation_steps: int = 16, optimizer=None, learning_rate: float = 0.0001, weight_decay: float | None = 0.1, 
+                 gradient_accumlation_steps: int = 16, learning_rate: float = 0.0001, weight_decay: float | None = 0.1, 
                  eps: float | None = 0.000001, warmup_steps: int = 150, epochs: int | None = 1, path_ckpt_step: str | None = 'checkpoint.pt', loss: str = 'cosine_embedding', 
                  use_wandb: bool = True):
         
         super().__init__(model, tokenizer_name, path_datatrain, device, path_dataeval, 
-                         batch_size, shuffle, num_workers, pin_memory, prefetch_factor, persistent_workers, gradient_accumlation_steps, optimizer, 
+                         batch_size, shuffle, num_workers, pin_memory, prefetch_factor, persistent_workers, gradient_accumlation_steps,
                          learning_rate, weight_decay, eps, warmup_steps, epochs, path_ckpt_step, use_wandb)
         
 
@@ -308,12 +314,12 @@ class TrainerCrossEncoder(Trainer):
     def __init__(self, model:Type[CrossEncoder], tokenizer_name: type[str], path_datatrain: str, 
                  device: type[torch.device], path_dataeval: str = None, batch_size: int = 8, shuffle: bool | None = True, 
                  num_workers: int = 16, pin_memory: bool | None = True, prefetch_factor: int = 8, persistent_workers: bool | None = True, 
-                 gradient_accumlation_steps: int = 16, optimizer=None, learning_rate: float = 0.0001, weight_decay: float | None = 0.1, 
+                 gradient_accumlation_steps: int = 16, learning_rate: float = 0.0001, weight_decay: float | None = 0.1, 
                  eps: float | None = 0.000001, warmup_steps: int = 150, epochs: int | None = 1, path_ckpt_step: str | None = 'checkpoint.pt', loss: str= 'sigmoid_crossentropy',
                  use_wandb: bool = True):
         
         super().__init__(model, tokenizer_name, path_datatrain, device, path_dataeval, 
-                         batch_size, shuffle, num_workers, pin_memory, prefetch_factor, persistent_workers, gradient_accumlation_steps, optimizer, 
+                         batch_size, shuffle, num_workers, pin_memory, prefetch_factor, persistent_workers, gradient_accumlation_steps,
                          learning_rate, weight_decay, eps, warmup_steps, epochs, path_ckpt_step, use_wandb)
         
         self.loss= loss
