@@ -117,11 +117,10 @@ class Trainer:
     def _compute_loss(self, data):
         pass 
 
-    def _train_on_epoch(self, verbose: Optional[int]= 1, step_save: Optional[int]= 1000): 
+    def _train_on_epoch(self, index_grad, verbose: Optional[int]= 1, step_save: Optional[int]= 1000): 
         self.model_lm.train()
         total_loss, total_count= 0, 0
         step_loss, step_fr= 0, 0
-        index_grad= 1 
 
         for idx, data in enumerate(self.dataloader_train): 
             with autocast():
@@ -147,10 +146,10 @@ class Trainer:
             total_count += 1 
 
             if (idx + 1) % (self.grad_accum * verbose) == 0: 
-                print(f'Step: [{index_grad}/{self.total_steps}], Loss: {step_loss / step_fr}')
+                print(f'Step: [{index_grad[0]}/{self.total_steps}], Loss: {step_loss / step_fr}')
                 step_loss = 0 
                 step_fr = 0 
-                index_grad += 1 
+                index_grad[0] += 1 
 
             if (idx + 1) % step_save ==0:
                 if isinstance(self.model_lm, GenAnsModel):
@@ -172,12 +171,13 @@ class Trainer:
         pass 
     
     def fit(self, verbose: Type[int]= 1, step_save: Type[int]= 1000, path_ckpt_epoch: Type[str]= 'best_ckpt.pt'):
+        index_grad= [1] 
         print('=' * 10 + ' Setup training' + '=' * 10)
         self._setup()
         print('=' * 10 + ' Begin training ' + '=' * 10)
         log_loss = 1e9
         for epoch in range(1, self.epochs + 1): 
-            train_loss= self._train_on_epoch(verbose, step_save)
+            train_loss= self._train_on_epoch(index_grad, verbose, step_save)
             # val_loss = evaluate()
             print('-' * 59)
             print(f'End of epoch {epoch} - loss: {train_loss}')
@@ -201,7 +201,8 @@ class Trainer:
                     else: 
                         self._save_ckpt({'epoch': epoch, 
                                     'model_state_dict': self.model_lm.state_dict(), 
-                                    'scheduler': self.scheduler.state_dict()})
+                                    'scheduler': self.scheduler.state_dict()}, 
+                                    path_ckpt_epoch)
                         
 
 
