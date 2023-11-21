@@ -12,7 +12,7 @@ class BiEncoder(nn.Module):
 
         self.model= AutoModel.from_pretrained(model_name, output_hidden_states= True)
 
-        if require_grad:
+        if not require_grad:
             self.model.requires_grad_(False)
     
         # define 

@@ -14,7 +14,7 @@ class CrossEncoder(nn.Module):
         self.model= AutoModel.from_pretrained(model_name, output_hidden_states= True)
         
 
-        if required_grad:
+        if not required_grad:
             self.model.requires_grad_(False)
     
         # define 
