@@ -283,6 +283,7 @@ class TrainerBiEncoder(Trainer):
         label= data['label'].to(self.device, non_blocking=True)
         
         if self.loss== 'sigmoid_crossentropy':
+            output= output.view(-1,)
             label= label.to(dtype= torch.float32)
 
         loss= self.criterion(output, label)
@@ -333,6 +334,7 @@ class TrainerCrossEncoder(Trainer):
         label= data['label'].to(self.device, non_blocking=True)
         
         if self.loss== 'sigmoid_crossentropy':
+            output= output.view(-1,)
             label= label.to(dtype= torch.float32)
 
         loss= self.criterion(output, label)
