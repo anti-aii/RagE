@@ -120,7 +120,9 @@ class Trainer:
     def _train_on_epoch(self, verbose: Optional[int]= 1, step_save: Optional[int]= 1000): 
         self.model_lm.train()
         total_loss, total_count= 0, 0
-        step_loss, step_fr= 0, 0 
+        step_loss, step_fr= 0, 0
+        index_grad= 1 
+
         for idx, data in enumerate(self.dataloader_train): 
             with autocast():
                 loss= self._compute_loss(data)
@@ -145,9 +147,10 @@ class Trainer:
             total_count += 1 
 
             if (idx + 1) % (self.grad_accum * verbose) == 0: 
-                print(f'Step: [{int((idx+1) / self.grad_accum)}/{self.total_steps}], Loss: {step_loss / step_fr}')
+                print(f'Step: [{index_grad}/{self.total_steps}], Loss: {step_loss / step_fr}')
                 step_loss = 0 
                 step_fr = 0 
+                index_grad += 1 
 
             if (idx + 1) % step_save ==0:
                 if isinstance(self.model_lm, GenAnsModel):
