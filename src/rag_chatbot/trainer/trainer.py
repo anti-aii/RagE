@@ -219,7 +219,8 @@ class Trainer:
                 else: 
                     self._save_ckpt({'epoch': epoch, 
                                 'model_state_dict': self.model_lm.state_dict(), 
-                                'scheduler': self.scheduler.state_dict()})
+                                'scheduler': self.scheduler.state_dict()},
+                                path_ckpt_epoch)
         
 
 class TrainerGenAns(Trainer):
