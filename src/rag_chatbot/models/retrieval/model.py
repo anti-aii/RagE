@@ -47,7 +47,7 @@ class BiEncoder(nn.Module):
         x_left = self.get_embedding(inputs_left)
         x_right= self.get_embedding(inputs_right)
 
-        x = torch.concat((x_left, x_right, torch.norm(x_right - x_left, p= 2, dim= -1)).view(-1, 1), dim= -1)
+        x = torch.concat((x_left, x_right, torch.norm(x_right - x_left, p= 2, dim= -1).view(-1, 1)), dim= -1)
         x = self.drp2(x)
         x = self.fc(x)
 
