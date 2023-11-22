@@ -6,13 +6,13 @@ from ...utils import TextFormat
 
 ### Bi-encoder 
 class BiEncoder(nn.Module):
-    def __init__(self, model_name= 'vinai/phobert-base-v2', require_grad= True, 
+    def __init__(self, model_name= 'vinai/phobert-base-v2', required_grad= True, 
                  dropout= 0.1, hidden_dim= 768, num_label= None):
         super(BiEncoder, self).__init__()
 
         self.model= AutoModel.from_pretrained(model_name, output_hidden_states= True)
 
-        if not require_grad:
+        if not required_grad:
             self.model.requires_grad_(False)
     
         # define 
@@ -47,9 +47,7 @@ class BiEncoder(nn.Module):
         x_left = self.get_embedding(inputs_left)
         x_right= self.get_embedding(inputs_right)
 
-        x = torch.concat((x_left, x_right, x_left - x_right, 
-                          torch.norm(x_right - x_left, p= 2, dim= -1)), 
-                          dim= -1)
+        x = torch.concat((x_left, x_right, torch.norm(x_right - x_left, p= 2, dim= -1)).view(-1, 1), dim= -1)
         x = self.drp2(x)
         x = self.fc(x)
 
