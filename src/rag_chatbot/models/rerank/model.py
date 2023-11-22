@@ -63,7 +63,7 @@ class Reranker:
         self.device= device
 
     def load_ckpt(self, path):
-        self.model.load_state_dict(torch.load(path, map_location= self.device))
+        self.model.load_state_dict(torch.load(path, map_location= self.device)['model_state_dict'])
 
     def _preprocess(self):
         if self.model.training: 
