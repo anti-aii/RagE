@@ -56,10 +56,10 @@ class BiEncoder(nn.Module):
 ### Sentence Bert
 ### By default, while training sentence bert, we use cosine similarity loss 
 class SentenceBert: 
-    def __init__(self, model_name= 'vinai/phobert-base-v2', required_grad= True, 
+    def __init__(self, model_name= 'vinai/phobert-base-v2', required_grad= True, num_label= 1,
                  dropout= 0.1, hidden_dim= 768, torch_dtype= torch.float16, device= None):
     
-        self.model= BiEncoder(model_name, required_grad, dropout, hidden_dim)
+        self.model= BiEncoder(model_name, required_grad, dropout, hidden_dim, num_label)
         self.model.to(device, dtype= torch_dtype)
         self.tokenizer= AutoTokenizer.from_pretrained(model_name, use_fast= True, add_prefix_space= True)
         self.device= device 
