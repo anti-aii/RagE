@@ -7,7 +7,7 @@ from ...utils import TextFormat
 ### Bi-encoder 
 class BiEncoder(nn.Module):
     def __init__(self, model_name= 'vinai/phobert-base-v2', require_grad= True, 
-                 dropout= 0.1, hidden_dim= 768):
+                 dropout= 0.1, hidden_dim= 768, num_label= None):
         super(BiEncoder, self).__init__()
 
         self.model= AutoModel.from_pretrained(model_name, output_hidden_states= True)
@@ -25,7 +25,11 @@ class BiEncoder(nn.Module):
         self.drp2= nn.Dropout(p= dropout)
         
         # defind output 
-        self.fc= nn.Linear(hidden_dim * 2 + 1, 128)
+        if not num_label: 
+            self.fc= nn.Linear(hidden_dim * 2 + 1, 128)
+        else:
+            self.fc= nn.Linear(hidden_dim * 2 + 1, num_label)
+
         nn.init.xavier_uniform_(self.fc.weight)
         nn.init.zeros_(self.fc.bias)
 
