@@ -286,6 +286,7 @@ class TrainerBiEncoder(Trainer):
         self.collate= SentABCollate(self.tokenizer_name, mode= "bi_encoder")
 
     def _compute_loss(self, data):
+        label= data['label'].to(self.device, non_blocking=True)
 
         if self.loss == 'cosine_similarity': 
             embed_a= self.model_lm.get_embedding(
@@ -302,7 +303,6 @@ class TrainerBiEncoder(Trainer):
             dict((i, j.to(self.device, non_blocking=True)) for i, j in data['x_2'].items() if i in ['input_ids', 'attention_mask'])
         )
         
-        label= data['label'].to(self.device, non_blocking=True)
         
         if self.loss== 'sigmoid_crossentropy':
             output= output.view(-1,)
