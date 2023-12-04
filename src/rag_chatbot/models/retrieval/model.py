@@ -61,13 +61,15 @@ class SentenceBert:
                  dropout= 0.1, hidden_dim= 768, torch_dtype= torch.float16, device= None):
     
         self.model= BiEncoder(model_name, required_grad, dropout, hidden_dim, num_label)
-        self.model.to(device, dtype= torch_dtype)
+        # self.model.to(device, dtype= torch_dtype)
         self.tokenizer= AutoTokenizer.from_pretrained(model_name, use_fast= True, add_prefix_space= True)
         self.device= device 
+        self.dtype= torch_dtype
     
     def load_ckpt(self, path): 
-        self.model.load_state_dict(torch.load(path, map_location= self.device)['model_state_dict'])
-    
+        self.model.load_state_dict(torch.load(path, map_location= 'cpu')['model_state_dict'])
+        self.model.to(self.device, dtype= self.torch_dtype)
+
     def _preprocess(self): 
         if self.model.training: 
             self.model.eval() 

@@ -58,13 +58,15 @@ class Reranker:
                  dropout=0.1, hidden_dim=768, num_label=1, torch_dtype= torch.float16, device= None):
 
         self.model= CrossEncoder(model_name, required_grad, dropout, hidden_dim, num_label)
-        self.model.to(device, dtype= torch_dtype)
+        # self.model.to(device, dtype= torch_dtype)
         self.tokenizer= AutoTokenizer.from_pretrained(model_name, add_prefix_space= True, use_fast= True)
         self.device= device
+        self.torch_dtype= torch_dtype
 
     def load_ckpt(self, path):
         self.model.load_state_dict(torch.load(path, map_location= self.device)['model_state_dict'])
-
+        self.model.to(self.device, dtype= self.torch_dtype)
+        
     def _preprocess(self):
         if self.model.training: 
             self.model.eval()
