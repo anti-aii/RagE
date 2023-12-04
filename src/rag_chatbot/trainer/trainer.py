@@ -21,7 +21,7 @@ from ..datasets import (
     SentABCollate, 
     SentABDL
 )
-from ..losses import CosineSimilarityLoss
+from ..losses import CosineSimilarityLoss, MSELogLoss
 
 # os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 # os.environ['WANDB_DIR'] = os.getcwd() + '/wandb/'
@@ -296,7 +296,7 @@ class TrainerBiEncoder(Trainer):
             embed_b= self.model_lm.get_embedding(
                 dict((i, j.to(self.device, non_blocking=True)) for i, j in data['x_2'].items() if i in ['input_ids', 'attention_mask'])
                 )
-            return self.criterion(embed_a, embed_b, label)
+            return self.criterion(embed_a, embed_b, label.to(dtype= torch.float32))
 
         output= self.model_lm(
             dict((i, j.to(self.device, non_blocking=True)) for i, j in data['x_1'].items() if i in ['input_ids', 'attention_mask']),
@@ -339,11 +339,13 @@ class TrainerCrossEncoder(Trainer):
                          learning_rate, weight_decay, eps, warmup_steps, epochs, path_ckpt_step, use_wandb)
         
         self.loss= loss
-        assert loss in ['sigmoid_crossentropy', 'categorical_crossentropy']
+        assert loss in ['sigmoid_crossentropy', 'categorical_crossentropy', 'mselog']
         if loss == 'sigmoid_crossentropy': 
             self.criterion= nn.BCEWithLogitsLoss()
         elif loss== 'categorical_crossentropy': 
             self.criterion= nn.CrossEntropyLoss(label_smoothing= 0.1)
+        elif loss== 'mselog': 
+            self.criterion= MSELogLoss()
 
         self.type_dataset= SentABDL
         self.collate= SentABCollate(self.tokenizer_name, mode= "cross_encoder")
@@ -358,6 +360,9 @@ class TrainerCrossEncoder(Trainer):
         if self.loss== 'sigmoid_crossentropy':
             output= output.view(-1,)
             label= label.to(dtype= torch.float32)
+        elif self.loss== 'mselog':
+            output= output.view(-1,) 
+            label=  label.to(dtype= torch.float32)
 
         loss= self.criterion(output, label)
         

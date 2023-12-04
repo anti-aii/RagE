@@ -1,3 +1,4 @@
+from typing import List
 import torch 
 import torch.nn as nn 
 from transformers import AutoModel, AutoTokenizer
@@ -77,7 +78,7 @@ class SentenceBert:
         
         return inputs
     
-    def encode(self, text: str): 
+    def encode(self, text: List[str]): 
         self._preprocess()
 
         batch_text= list(map(lambda x: TextFormat.preprocess_text(x), text))

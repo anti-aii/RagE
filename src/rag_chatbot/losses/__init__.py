@@ -1,1 +1,2 @@
 from .CosineSimilarityLoss import CosineSimilarityLoss
+from .MSELogLoss import MSELogLoss

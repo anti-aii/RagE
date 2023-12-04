@@ -89,7 +89,7 @@ class GenAnsModel:
     def _load_ckpt(self, ckpt_dir: Optional[str]= 'ckpt_lora.pt'): 
         lora_weight= torch.load(ckpt_dir, map_location= 'cpu') 
         self.model.load_state_dict(lora_weight['lora'], strict= False)
-        self.model.to(self.device)
+        
 
     def prepare_inference(self, ckpt_dir: Type[str], merge_lora: Optional[bool]= True, 
                           torch_compile: Optional[bool]= True, 
@@ -102,6 +102,10 @@ class GenAnsModel:
             self.model.merge_and_unload()
         if torch_compile: 
             self.model= torch.compile(self.model, backend= backend)
+        
+        self.model.to(self.device)
+        
+        torch.cuda.empty_cache()
         
         self.model.eval() # eval mode 
         self._state= 'infer'
@@ -155,13 +159,13 @@ class GenAnsModelCasualLM(GenAnsModel):
         self.TaskType= TaskType.CAUSAL_LM
 
 
-### class GenAnsModelSeq2SeqLM  Support T5-based models
+### class GenAnsModelSeq2SeqLM  Support T5-based models 
 class GenAnsModelSeq2SeqLM(GenAnsModel):
     def __init__(self,
         model_name: Type[str],  device: Type[torch.device],
-        torch_dtype= torch.float16, lora_r: Optional[int]= 32, 
+        torch_dtype= torch.bfloat16, lora_r: Optional[int]= 32,  # bfloat16 for traning, float16 for inference 
         lora_alpha: Optional[int]= 32,  lora_dropout: Optional[int]= 0.05, 
-        target_modules= ["query_key_value"], quantization_config= None,
+        target_modules= ["q", "v"], quantization_config= None,
     ): 
     
         super(GenAnsModelCasualLM, self).__init__(device, lora_r, lora_alpha, 
