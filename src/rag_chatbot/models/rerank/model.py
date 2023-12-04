@@ -64,9 +64,9 @@ class Reranker:
         self.torch_dtype= torch_dtype
 
     def load_ckpt(self, path):
-        self.model.load_state_dict(torch.load(path, map_location= self.device)['model_state_dict'])
+        self.model.load_state_dict(torch.load(path, map_location= 'cpu')['model_state_dict'])
         self.model.to(self.device, dtype= self.torch_dtype)
-        
+
     def _preprocess(self):
         if self.model.training: 
             self.model.eval()
