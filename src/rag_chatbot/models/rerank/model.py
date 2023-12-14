@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn 
 from transformers import AutoModel, AutoTokenizer
 from ..componets import AttentionWithContext, ExtraRoberta 
-from ...utils import TextFormat
+
 
 ### Cross-encoder
 class CrossEncoder(nn.Module): 
@@ -79,9 +79,7 @@ class Reranker:
 
     def predict(self, text: List[list[str]]):  # [[a, b], [c, d]]
         self._preprocess()
-        batch_text= list(map(lambda x: self.tokenizer.sep_token.join([TextFormat.preprocess_text(x[0]), 
-                                                                      TextFormat.preprocess_text(x[1])]), 
-                             text))
+        batch_text= list(map(lambda x: self.tokenizer.sep_token.join([x[0], x[1]]), text))
 
         inputs= self._preprocess_tokenize(batch_text)
 

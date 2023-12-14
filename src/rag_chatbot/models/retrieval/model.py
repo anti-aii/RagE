@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn 
 from transformers import AutoModel, AutoTokenizer
 from ..componets import AttentionWithContext, ExtraRoberta
-from ...utils import TextFormat
+
 
 ### Bi-encoder 
 class BiEncoder(nn.Module):
@@ -64,7 +64,7 @@ class SentenceBert:
         # self.model.to(device, dtype= torch_dtype)
         self.tokenizer= AutoTokenizer.from_pretrained(model_name, use_fast= True, add_prefix_space= True)
         self.device= device 
-        self.dtype= torch_dtype
+        self.torch_dtype= torch_dtype
     
     def load_ckpt(self, path): 
         self.model.load_state_dict(torch.load(path, map_location= 'cpu')['model_state_dict'])
@@ -83,8 +83,8 @@ class SentenceBert:
     def encode(self, text: List[str]): 
         self._preprocess()
 
-        batch_text= list(map(lambda x: TextFormat.preprocess_text(x), text))
-        inputs= self._preprocess_tokenize(batch_text)
+        # batch_text= list(map(lambda x: TextFormat.preprocess_text(x), text))
+        inputs= self._preprocess_tokenize(text)
         # print(inputs)
 
         with torch.no_grad(): 
