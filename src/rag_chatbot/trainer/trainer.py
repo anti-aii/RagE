@@ -21,7 +21,7 @@ from ..datasets import (
     SentABCollate, 
     SentABDL
 )
-from ..losses import CosineSimilarityLoss, MSELogLoss
+from ..losses import CosineSimilarityLoss, MSELogLoss, ContrastiveLoss
 
 # os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 # os.environ['WANDB_DIR'] = os.getcwd() + '/wandb/'
@@ -274,13 +274,15 @@ class TrainerBiEncoder(Trainer):
 
         self.loss= loss 
 
-        assert loss in ['sigmoid_crossentropy', 'categorical_crossentropy', 'cosine_similarity']
+        assert loss in ['sigmoid_crossentropy', 'categorical_crossentropy', 'cosine_similarity', 'contrastive']
         if loss == 'sigmoid_crossentropy': 
             self.criterion= nn.BCEWithLogitsLoss()
         elif loss== 'categorical_crossentropy': 
             self.criterion= nn.CrossEntropyLoss(label_smoothing= 0.1)
         elif loss == 'cosine_similarity': 
             self.criterion= CosineSimilarityLoss()
+        elif loss == 'contrastive': 
+            self.criterion= ContrastiveLoss(margin= 0.5)
 
         self.type_dataset= SentABDL
         self.collate= SentABCollate(self.tokenizer_name, mode= "bi_encoder")
@@ -288,7 +290,7 @@ class TrainerBiEncoder(Trainer):
     def _compute_loss(self, data):
         label= data['label'].to(self.device, non_blocking=True)
 
-        if self.loss == 'cosine_similarity': 
+        if self.loss == 'cosine_similarity' or self.loss == 'contrastive': 
             embed_a= self.model_lm.get_embedding(
                 dict((i, j.to(self.device, non_blocking=True)) for i, j in data['x_1'].items() if i in ['input_ids', 'attention_mask'])
                 )
