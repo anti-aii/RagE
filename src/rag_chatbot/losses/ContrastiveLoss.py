@@ -12,7 +12,7 @@ class ContrastiveLoss(nn.Module):
 
     def forward(self, embedding_a, embedding_b, labels): 
 
-        distance_matrix= self.distance(embedding_a, embedding_b, labels)
+        distance_matrix= self.distance(embedding_a, embedding_b)
         negs= distance_matrix[labels == 0]
         poss= distance_matrix[labels == 1]
         negative_pairs = negs[negs < (poss.max() if len(poss) > 1 else negs.mean())]
