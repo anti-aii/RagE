@@ -7,6 +7,7 @@ from torch import nn
 
 class ContrastiveLoss(nn.Module):
     def __init__(self, margin): 
+        super(ContrastiveLoss, self).__init__()
         self.margin= margin
         self.distance= lambda x, y: 1- torch.cosine_similarity(x, y)
 
