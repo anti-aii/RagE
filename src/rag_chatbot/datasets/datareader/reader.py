@@ -2,16 +2,11 @@ from typing import Type
 import pandas as pd 
 
 class DataReader: 
-    def __init__(self, filename: Type[str]): 
-        """
-        Initializes a new instance of the domain_reader class.
-
-        Args:
-        filename (str): The name of the file to read.
-        """
+    def __init__(self, filename: Type[str], condition_func= None): 
         self.__filename= filename
         self.__data= None 
-        assert filename.endswith(".csv") or filename.endswith(".json"), "Currently, We only support two type formats: csv and json and txt"
+        self.__condition_func= condition_func
+        assert filename.endswith(".csv") or filename.endswith(".json"), "Currently, We only support three type formats: csv and json and txt"
     
     def __raise_empty(self):
         if self.__data is None:
@@ -47,6 +42,8 @@ class DataReader:
         elif self.__filename.endswith(".txt"):
             self._read_txt()
 
-        assert len(self.__data.columns) == 3, "The number of columns must be 3"
-
+        # assert len(self.__data.columns) == 3, "The number of columns must be 3"
+        
+        if self.__condition_func: 
+            return self.__condition_func(self.__data)
         return self.__data 
