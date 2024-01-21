@@ -23,3 +23,5 @@ nonanswer:
     - "Hiện tại tôi chưa thể trả lời được câu hỏi này."
     - "Tôi không thể trả lời được câu hỏi của bạn do chưa có tri thức."
     - "Hiện tại tri thức của tôi chưa đủ để có thể trả lời câu hỏi của bạn"
+    - "Tôi chưa có câu trả lời dành cho bạn, có thể do tôi chưa có tri thức hoặc câu hỏi của bạn không rõ ràng."
+    - "Câu hỏi của bạn có thể không rõ ràng, bạn hãy thử lại với câu hỏi khác, hoặc có thể do tôi chưa có tri thức để trả lời cho câu hỏi của bạn."

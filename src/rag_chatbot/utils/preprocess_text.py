@@ -1,8 +1,6 @@
 import re 
 from typing import Type, List
 import unicodedata as ud 
-import random 
-import yaml 
 
 class TextFormat:
     @staticmethod
@@ -32,19 +30,3 @@ class TextFormat:
         for func in [TextFormat.remove_urls, TextFormat.remove_html, TextFormat.remove_emoji]: 
             text= func(text)
         return text 
-    
-
-class ResponsewithRule: 
-    def __init__(self, path: Type[str]): 
-        # load 
-        with open(path, 'r') as f: 
-            self.answers= yaml.full_load(f)
-
-    def reply_begin_conversation(self): 
-        return random.choice(self.answers['begin'])
-    
-    def reply_nonanswer(self): 
-        return random.choice(self.answers['nonanswer'])
-    
-    def reply_close_conversation(self): 
-        return random.choice(self.answers['end'])
