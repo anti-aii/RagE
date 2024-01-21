@@ -138,7 +138,7 @@ class SentABCollate:
         }
 
     def _return_type_inbatch_negative(self, data): 
-        zip_data= zip(*data)
+        zip_data= list(zip(*data))
         anchor, pos= zip_data[0: 2]
         hard_neg= zip_data[2:] # support multiple hard negatives
 
@@ -152,7 +152,7 @@ class SentABCollate:
 
         if len(hard_neg) > 0: 
             if self.augument_func:
-                hard_neg= self._using_augment(hard_neg)
+                hard_neg= list(self._using_augment(hard_neg))
             for i in range(len(hard_neg)): 
                 result[f'hard_neg_{i+1}']= self._tokenize(hard_neg[i])
             return result
