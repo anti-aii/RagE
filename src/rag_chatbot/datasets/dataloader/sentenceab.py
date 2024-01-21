@@ -4,6 +4,7 @@ from torch.utils.data import Dataset
 from transformers import AutoTokenizer
 from ..datareader import DataReader 
 from ...utils.augment_text import TextAugment
+from typing import Union
 
 import logging 
 logger= logging.Logger(__name__)
@@ -27,7 +28,14 @@ class is_df_relate_task:
 
 class SentABDL(Dataset): 
     
-    def __init__(self, path_data: str, task: str):
+    def __init__(self, path_or_dataframe: Union[str, pd.DataFrame], task: str= 'label_is_numerical'):
+        '''
+        task: 
+            'label_is_numerical'  # cosine_sim, sigmoid, categorical 
+            'label_is_other_embedding' # constrastive loss  
+            'label_is_pos_neg' # triplet loss 
+            'multi_negatives' # in-batch negatives  
+        '''
         
         assert task in [
             'label_is_numerical',  # cosine_sim, sigmoid, categorical 
@@ -35,7 +43,7 @@ class SentABDL(Dataset):
             'label_is_pos_neg', # triplet loss 
             'multi_negatives' # in-batch negatives  
         ]
-        self.df= DataReader(path_data, condition_func= is_df_relate_task(task)).read()
+        self.df= DataReader(path_or_dataframe, condition_func= is_df_relate_task(task)).read()
         self.task= task
 
     def __len__(self): 
@@ -48,8 +56,8 @@ class SentABCollate:
     def __init__(self, tokenizer_name: str= 'vinai/phobert-base-v2', max_length= 256, 
                     mode: str= 'cross_encoder', model_type= 'bert', task= 'label_is_numerical', 
                     augment_func: TextAugment= None):
-
-        assert isinstance(augment_func, TextAugment)
+        
+        assert isinstance(augment_func, TextAugment) or augment_func is None
         assert model_type in ['bert', 't5'] # T5 or mt5 are currently not supported for unsupervised training
         assert mode in ['bi_encoder', 'cross_encoder']
         assert task in [
