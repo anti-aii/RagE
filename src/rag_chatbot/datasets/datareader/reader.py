@@ -18,7 +18,7 @@ class DataReader:
     
     def __raise_empty(self):
         if self.__data is None:
-            raise Exception("Data is Empty!")
+            raise ValueError("Data is Empty!")
         
     def __len__(self):
         self.__raise_empty()
@@ -41,6 +41,7 @@ class DataReader:
         Reads the data rom a text file 
         """
         self.__data= pd.read_csv(self.__filename, delimiter= '|', header= None)
+
     def read(self): 
         if self.__filename:
             if self.__filename.endswith(".csv"):
@@ -49,6 +50,8 @@ class DataReader:
                 self._read_json()
             elif self.__filename.endswith(".txt"):
                 self._read_txt()
+            else:
+                raise ValueError("Only support .txt, .json, .csv formart")
 
         # assert len(self.__data.columns) == 3, "The number of columns must be 3"
         
