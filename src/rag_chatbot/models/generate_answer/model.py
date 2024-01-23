@@ -122,7 +122,7 @@ class GenAnsModel:
 
     def gen(self, text, config_gen= None): 
         if self._state != 'infer': 
-            raise 'Must use prepare_inference method.'
+            raise ValueError('Must use prepare_inference method.')
         
         encode= self.tokenizer.batch_encode_plus(text, padding= 'longest', 
                                                 return_tensors= 'pt')

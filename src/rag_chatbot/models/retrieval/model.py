@@ -2,65 +2,78 @@ from typing import List
 import torch 
 import torch.nn as nn 
 from transformers import AutoModel, AutoTokenizer
-from ..componets import AttentionWithContext, ExtraRoberta
-
+from ..componets import AttentionWithContext, ExtraRoberta, load_backbone
 
 ### Bi-encoder 
 class BiEncoder(nn.Module):
-    def __init__(self, model_name= 'vinai/phobert-base-v2', required_grad= True, 
+    def __init__(self, model_name= 'vinai/phobert-base-v2', type_backbone= 'bert',
+                 using_hidden_states= True, concat_embeddings= False, required_grad= True, 
                  dropout= 0.1, hidden_dim= 768, num_label= None):
         super(BiEncoder, self).__init__()
 
-        self.model= AutoModel.from_pretrained(model_name, output_hidden_states= True)
+        self.using_hidden_states= using_hidden_states
+        self.concat_embeddings= concat_embeddings
+
+        self.model= load_backbone(model_name, type_backbone= type_backbone, 
+                                using_hidden_states= using_hidden_states)
 
         if not required_grad:
             self.model.requires_grad_(False)
     
         # define 
-        self.extract= ExtraRoberta(method= 'mean')
-        # only support transformer-based encoder output dim = 786
-        self.attention_context= AttentionWithContext(units= hidden_dim, )
+        if self.using_hidden_states:
+            self.extract= ExtraRoberta(method= 'mean')
+            
+        self.attention_context= AttentionWithContext(units= hidden_dim)
 
         # dropout
         self.drp1= nn.Dropout(p= dropout)
-        self.drp2= nn.Dropout(p= dropout)
         
         # defind output 
-        if not num_label: 
-            self.fc= nn.Linear(hidden_dim * 2 + 1, 128)
-        else:
-            self.fc= nn.Linear(hidden_dim * 2 + 1, num_label)
+        if self.concat_embeddings:  
 
-        nn.init.xavier_uniform_(self.fc.weight)
-        nn.init.zeros_(self.fc.bias)
+            self.drp2= nn.Dropout(p= dropout)
 
-    def get_embedding(self, inputs): 
-        embedding_bert= self.model(**inputs)
-        embedding_enhance= self.extract(embedding_bert.hidden_states)
+            if not num_label: 
+                self.fc= nn.Linear(hidden_dim * 2 + 1, 128) ## suggest using with cosine similarity loss based on sentence bert paper
+            else:
+                self.fc= nn.Linear(hidden_dim * 2 + 1, num_label)
+
+            nn.init.xavier_uniform_(self.fc.weight)
+            nn.init.zeros_(self.fc.bias)
+
+    def get_embedding(self, input): 
+        embedding= self.model(**input)
+
+        if self.using_hidden_states: 
+            embedding= self.extract(embedding.hidden_states)
 
         # x= self.lnrom(embedding_enhance)
-        x= self.drp1(embedding_enhance)
+        x= self.drp1(embedding)
         x= self.attention_context(x)
 
         return x 
     
-    def forward(self, inputs_left, inputs_right): 
-        x_left = self.get_embedding(inputs_left)
-        x_right= self.get_embedding(inputs_right)
-
-        x = torch.concat((x_left, x_right, torch.norm(x_right - x_left, p= 2, dim= -1).view(-1, 1)), dim= -1)
-        x = self.drp2(x)
-        x = self.fc(x)
-
-        return x 
+    def forward(self, inputs): 
+        if self.concat_output_embeddding and len(inputs) == 2: 
+            x_left = self.get_embedding(inputs[0])
+            x_right= self.get_embedding(inputs[1])
+            x = torch.concat((x_left, x_right, torch.norm(x_right - x_left, p= 2, dim= -1).view(-1, 1)), dim= -1)
+            x = self.drp2(x)
+            x = self.fc(x)
+            return x 
+        else: 
+            return (self.get_embedding(i) for i in inputs) 
 
 ### Sentence Bert
 ### By default, while training sentence bert, we use cosine similarity loss 
-class SentenceBert: 
-    def __init__(self, model_name= 'vinai/phobert-base-v2', required_grad= True, num_label= 1,
+class SentenceEmbedding: 
+    def __init__(self, model_name= 'vinai/phobert-base-v2', type_backbone= 'bert',
+                 using_hidden_states= True, concat_embeddings= False, required_grad= True, num_label= 1,
                  dropout= 0.1, hidden_dim= 768, torch_dtype= torch.float16, device= None):
     
-        self.model= BiEncoder(model_name, required_grad, dropout, hidden_dim, num_label)
+        self.model= BiEncoder(model_name, type_backbone, using_hidden_states, concat_embeddings, 
+                              required_grad, dropout, hidden_dim, num_label)
         # self.model.to(device, dtype= torch_dtype)
         self.tokenizer= AutoTokenizer.from_pretrained(model_name, use_fast= True, add_prefix_space= True)
         self.device= device 
@@ -74,17 +87,17 @@ class SentenceBert:
         if self.model.training: 
             self.model.eval() 
     
-    def _preprocess_tokenize(self, text): 
+    def _preprocess_tokenize(self, text, max_legnth= 256): 
+        # 256 phobert, t5 512 
         inputs= self.tokenizer.batch_encode_plus(text, return_tensors= 'pt', 
-                            padding= 'longest', max_length= 256, truncation= True)
-        
+                            padding= 'longest', max_length= max_legnth, truncation= True)
         return inputs
     
-    def encode(self, text: List[str]): 
+    def encode(self, text: List[str], max_length= 256): 
+        # PhoBERT max length 256, T5 max length 512
         self._preprocess()
-
         # batch_text= list(map(lambda x: TextFormat.preprocess_text(x), text))
-        inputs= self._preprocess_tokenize(text)
+        inputs= self._preprocess_tokenize(text, max_length)
         # print(inputs)
 
         with torch.no_grad(): 

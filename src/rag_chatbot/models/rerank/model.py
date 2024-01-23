@@ -1,27 +1,29 @@
 from typing import List
 import torch 
 import torch.nn as nn 
-from transformers import AutoModel, AutoTokenizer
-from ..componets import AttentionWithContext, ExtraRoberta 
+from transformers import AutoTokenizer
+from ..componets import AttentionWithContext, ExtraRoberta, load_backbone
 
 
 ### Cross-encoder
 class CrossEncoder(nn.Module): 
     # using 
-    def __init__(self, model_name= 'vinai/phobert-base-v2', required_grad= False, 
+    def __init__(self, model_name= 'vinai/phobert-base-v2', type_backbone= 'bert',
+                 using_hidden_states= True, required_grad= False, 
                  dropout= 0.1, hidden_dim= 768, num_label= 1):
         super(CrossEncoder, self).__init__()
-        self.model= AutoModel.from_pretrained(model_name, output_hidden_states= True)
         
+        self.using_hidden_states= using_hidden_states
+        self.model= load_backbone(model_name, type_backbone= type_backbone, 
+                                using_hidden_states= using_hidden_states)
 
         if not required_grad:
             self.model.requires_grad_(False)
     
         # define 
-        self.extract= ExtraRoberta(method= 'mean')
-        # only support transformer-based encoder output dim = 786
-        self.attention_context= AttentionWithContext(units= hidden_dim, )
-        # self.lnrom= nn.LayerNorm(hidden_dim, eps= 1e-6)
+        if self.using_hidden_states:
+            self.extract= ExtraRoberta(method= 'mean')
+        self.attention_context= AttentionWithContext(units= hidden_dim)
 
         # dropout 
         self.drp1= nn.Dropout(p= dropout)
@@ -33,11 +35,12 @@ class CrossEncoder(nn.Module):
         nn.init.zeros_(self.fc.bias)
 
     def get_embedding(self, inputs):
-        embedding_bert= self.model(**inputs)
-        embedding_enhance= self.extract(embedding_bert.hidden_states)
+        embedding= self.model(**inputs)
 
-        # x= self.lnrom(embedding_enhance)
-        x= self.drp1(embedding_enhance)
+        if self.using_hidden_states: 
+            embedding= self.extract(embedding.hidden_states)
+
+        x= self.drp1(embedding)
         x= self.attention_context(x)
 
         return x 
@@ -53,11 +56,13 @@ class CrossEncoder(nn.Module):
 
 
 ### ReRanker 
-class Reranker: 
-    def __init__(self, model_name='vinai/phobert-base-v2', required_grad=False, 
-                 dropout=0.1, hidden_dim=768, num_label=1, torch_dtype= torch.float16, device= None):
+class Ranker: 
+    def __init__(self, model_name='vinai/phobert-base-v2', type_backbone= 'bert', 
+                 using_hidden_states= True, required_grad=False, dropout=0.1, 
+                 hidden_dim=768, num_label=1, torch_dtype= torch.float16, device= None):
 
-        self.model= CrossEncoder(model_name, required_grad, dropout, hidden_dim, num_label)
+        self.model= CrossEncoder(model_name, type_backbone, using_hidden_states, 
+                                 required_grad, dropout, hidden_dim, num_label)
         # self.model.to(device, dtype= torch_dtype)
         self.tokenizer= AutoTokenizer.from_pretrained(model_name, add_prefix_space= True, use_fast= True)
         self.device= device
@@ -71,17 +76,15 @@ class Reranker:
         if self.model.training: 
             self.model.eval()
     
-    def _preprocess_tokenize(self, text): 
+    def _preprocess_tokenize(self, text, max_length): 
         inputs= self.tokenizer.batch_encode_plus(text, return_tensors= 'pt', 
-                            padding= 'longest', max_length= 256, truncation= True)
-        
+                            padding= 'longest', max_length= max_length, truncation= True)
         return inputs
 
-    def predict(self, text: List[list[str]]):  # [[a, b], [c, d]]
+    def predict(self, text: List[list[str]], max_length= 256):  # [[a, b], [c, d]]
         self._preprocess()
         batch_text= list(map(lambda x: self.tokenizer.sep_token.join([x[0], x[1]]), text))
-
-        inputs= self._preprocess_tokenize(batch_text)
+        inputs= self._preprocess_tokenize(batch_text, max_length)
 
         with torch.no_grad(): 
             embedding= self.model(dict( (i, j.to(self.device)) for i,j in inputs.items()))

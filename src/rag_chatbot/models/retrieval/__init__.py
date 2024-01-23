@@ -1,1 +1,1 @@
-from .model import BiEncoder, SentenceBert
+from .model import BiEncoder, SentenceEmbedding
