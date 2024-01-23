@@ -122,14 +122,14 @@ class GenAnsModel:
 
     def gen(self, text, config_gen= None): 
         if self._state != 'infer': 
-            raise 'Must use prepare_inference method.'
+            raise ValueError('Must use prepare_inference method.')
         
         encode= self.tokenizer.batch_encode_plus(text, padding= 'longest', 
                                                 return_tensors= 'pt')
         output_sequences= self.model.generate(input_ids= encode['input_ids'].to(self.device), attention_mask= encode['attention_mask'].to(self.device), 
                                         **config_gen
                                         )
-        # torch.cuda.empty_cache()
+        torch.cuda.empty_cache() ## delete cache batch casted 
         return self.tokenizer.batch_decode(output_sequences, skip_special_tokens= True)[0] #.split('\n')[-1]     
 
 
@@ -151,7 +151,7 @@ class GenAnsModelCasualLM(GenAnsModel):
         self.model= AutoModelForCausalLM.from_pretrained(
             model_name, 
             torch_dtype= torch_dtype, 
-            device_map= 'cpu',  # default  
+            device_map= 'auto' if quantization_config else 'cpu', 
             quantization_config= quantization_config
         )
         self.tokenizer= AutoTokenizer.from_pretrained(model_name, use_fast= True)
@@ -174,7 +174,7 @@ class GenAnsModelSeq2SeqLM(GenAnsModel):
         self.model= AutoModelForSeq2SeqLM.from_pretrained(
             model_name, 
             torch_dtype= torch_dtype, # should use bf16 for training or f16 while inference 
-            device_map= 'cpu',  # default  
+            device_map= 'auto' if quantization_config else 'cpu',  # default  
             quantization_config= quantization_config
         )
         self.tokenizer= AutoTokenizer.from_pretrained(model_name, use_fast= True)

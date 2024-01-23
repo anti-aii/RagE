@@ -16,10 +16,10 @@ class ContrastiveLoss(nn.Module):
         distance_matrix= self.distance(embedding_a, embedding_b)
         negs= distance_matrix[labels == 0]
         poss= distance_matrix[labels == 1]
-        negative_pairs = negs[negs < (poss.max() if len(poss) > 1 else negs.mean())]
-        positive_pairs = poss[poss > (negs.min() if len(negs) > 1 else poss.mean())]
+        hard_negative = negs[negs < (poss.max() if len(poss) > 1 else negs.mean())]
+        hard_positive= poss[poss > (negs.min() if len(negs) > 1 else poss.mean())]
 
-        positive_loss = positive_pairs.pow(2).sum()
-        negative_loss = nn.functional.relu(self.margin - negative_pairs).pow(2).sum()
+        positive_loss = hard_negative.pow(2).sum()
+        negative_loss = nn.functional.relu(self.margin - hard_positive).pow(2).sum()
         loss = positive_loss + negative_loss
         return loss

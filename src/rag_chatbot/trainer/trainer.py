@@ -1,18 +1,17 @@
-import os 
-from typing import Type, Optional
+from typing import Type, Optional, Union
+import pandas as pd 
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader
 from torch.cuda.amp import autocast, GradScaler 
 from transformers.optimization import get_cosine_schedule_with_warmup
 from bitsandbytes.optim import PagedAdamW8bit
 import loralib as lora 
 import wandb 
+
 from ..models import (
     CrossEncoder, 
     BiEncoder, 
-    GenAnsModelCasualLM, 
-    GenAnsModelSeq2SeqLM,
     GenAnsModel
 )
 from ..datasets import (
@@ -21,7 +20,32 @@ from ..datasets import (
     SentABCollate, 
     SentABDL
 )
-from ..losses import CosineSimilarityLoss, MSELogLoss, ContrastiveLoss
+from ..losses import (
+    CosineSimilarityLoss, 
+    MSELogLoss, 
+    ContrastiveLoss,
+    TripletLoss, 
+    InBatchNegativeLoss
+)
+
+from ..constant import (
+    EMBEDDING_RANKER_NUMERICAL,
+    EMBEDDING_CONTRASTIVE,
+    EMBEDDING_TRIPLET, 
+    EMBEDDING_IN_BATCH_NEGATIVES
+)
+
+from ..constant import (
+    BINARY_CROSS_ENTROPY_LOSS,
+    CATEGORICAL_CROSS_ENTROPY_LOSS,
+    MSE_LOGARIT,
+    COSINE_SIMILARITY_LOSS,
+    CONSTRASTIVE_LOSS, 
+    TRIPLET_LOSS, 
+    IN_BATCH_NEGATIVES_LOSS
+)
+from ..constant import RULE_LOSS_TASK
+from ..utils.augment_text import TextAugment
 
 # os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
 # os.environ['WANDB_DIR'] = os.getcwd() + '/wandb/'
@@ -33,8 +57,8 @@ from ..losses import CosineSimilarityLoss, MSELogLoss, ContrastiveLoss
 
 class Trainer: 
     def __init__(self, 
-        model, tokenizer_name: Type[str], path_datatrain: str, device: Type[torch.device], 
-        path_dataeval: str= None, batch_size: int = 8, shuffle: Optional[bool]= True, num_workers: int= 16, 
+        model, tokenizer_name: Type[str], data_train: Union[pd.DataFrame, str], device: Type[torch.device], 
+        data_eval: Union[pd.DataFrame, str]= None, batch_size: int = 8, shuffle: Optional[bool]= True, num_workers: int= 16, 
         pin_memory: Optional[bool]= True, prefetch_factor: int= 8, persistent_workers: Optional[bool]= True, 
         gradient_accumlation_steps: int= 16, learning_rate: float= 1e-4, weight_decay: Optional[float]= 0.1, 
         eps: Optional[float]= 1e-6, warmup_steps: int= 150, epochs: Optional[int]= 1, path_ckpt_step: Optional[str]= 'checkpoint.pt',
@@ -43,11 +67,10 @@ class Trainer:
 
         # base 
         self.model_lm= model 
-        self.tokenizer_name= tokenizer_name
-        
+
         # dataset
-        self.path_datatrain= path_datatrain
-        self.path_dataeval= path_dataeval
+        self.data_train= data_train
+        self.data_eval= data_eval
 
         self.dataloader_train= None
         self.dataloader_eval= None 
@@ -83,14 +106,16 @@ class Trainer:
         self.use_wandb= use_wandb 
 
     def _setup_dataset(self): 
-        train_dataset= self.type_dataset(self.path_datatrain)
+        pass
+
+    def _setup_dataloader(self): 
+        train_dataset, eval_dataset= self._setup_dataset()
         self.dataloader_train= DataLoader(train_dataset, batch_size= self.batch_size,
                                           collate_fn= self.collate, shuffle= self.shuffle,
                                           num_workers= self.num_workers, pin_memory= self.pin_memory, 
                                           prefetch_factor= self.prefetch_factor, persistent_workers= self.persistent_workers)
         
         if self.path_dataeval: 
-            eval_dataset= self.type_dataset(self.path_dataeval)
             self.dataloader_eval= DataLoader(eval_dataset, batch_size= self.batch_size,
                                              collate_fn= self.collate, shuffle= False)
     
@@ -107,7 +132,7 @@ class Trainer:
         self.scaler= GradScaler()
     
     def _setup(self): 
-        self._setup_dataset()
+        self._setup_dataloader()
         self._setup_optim() 
         self._setup_mxprecision()
     
@@ -224,19 +249,26 @@ class Trainer:
         
 
 class TrainerGenAns(Trainer):
-    def __init__(self, model: Type[GenAnsModel], tokenizer_name: type[str], path_datatrain: str, 
-                device: type[torch.device], path_dataeval: str = None, batch_size: int = 8, shuffle: bool | None = True, 
+    def __init__(self, model: Type[GenAnsModel], tokenizer_name: type[str], data_train: Union[pd.DataFrame, str], 
+                 device: type[torch.device], max_length: int, data_eval: Union[pd.DataFrame, str] = None, batch_size: int = 8, shuffle: bool | None = True, 
                  num_workers: int = 16, pin_memory: bool | None = True, prefetch_factor: int = 8, persistent_workers: bool | None = True, 
                  gradient_accumlation_steps: int = 16, learning_rate: float = 0.0001, weight_decay: float | None = 0.1, 
                  eps: float | None = 0.000001, warmup_steps: int = 150, epochs: int | None = 1, path_ckpt_step: str | None = 'checkpoint.pt', 
                  use_wandb: bool = True):
         
-        super().__init__(model, tokenizer_name, path_datatrain, device, path_dataeval, 
-                         batch_size, shuffle, num_workers, pin_memory, prefetch_factor, persistent_workers, gradient_accumlation_steps,
+        super().__init__(model, tokenizer_name, data_train, device, data_eval, batch_size, shuffle, num_workers, 
+                         pin_memory, prefetch_factor, persistent_workers, gradient_accumlation_steps,
                          learning_rate, weight_decay, eps, warmup_steps, epochs, path_ckpt_step, use_wandb)
         
-        self.type_dataset= GenAnsDL
-        self.collate= GenAnsCollate(self.tokenizer_name)
+        self.collate= GenAnsCollate(tokenizer_name, max_length)
+
+    def _setup_dataset(self): 
+        train_dataset= GenAnsDL(self.data_train)
+
+        if self.data_eval: 
+            return train_dataset, GenAnsDL(self.data_eval)
+        
+        return train_dataset, None 
     
     def _compute_loss(self, data):
         loss= self.model_lm(input_ids= data['x_ids'].to(self.device, non_blocking=True), 
@@ -259,60 +291,107 @@ class TrainerGenAns(Trainer):
         return total_loss / total_count 
         
 
-class TrainerBiEncoder(Trainer):
-    def __init__(self, model: Type[BiEncoder], tokenizer_name: type[str], path_datatrain: str, 
-                 device: type[torch.device], path_dataeval: str = None, batch_size: int = 8, shuffle: bool | None = True, 
-                 num_workers: int = 16, pin_memory: bool | None = True, prefetch_factor: int = 8, persistent_workers: bool | None = True, 
-                 gradient_accumlation_steps: int = 16, learning_rate: float = 0.0001, weight_decay: float | None = 0.1, 
-                 eps: float | None = 0.000001, warmup_steps: int = 150, epochs: int | None = 1, path_ckpt_step: str | None = 'checkpoint.pt', loss: str = 'cosine_embedding', 
-                 use_wandb: bool = True):
+class TrainerBiEncoder(Trainer):  ## support 
+    def __init__(self, model: Type[BiEncoder], tokenizer_name: type[str], data_train: Union[pd.DataFrame, str], device: type[torch.device], 
+                max_length: Type[int]= 256, type_backbone: str= 'bert', augment_func: Type[TextAugment]= None, 
+                data_eval: Union[pd.DataFrame, str]= None, batch_size: int = 8, shuffle: bool | None = True, 
+                num_workers: int = 16, pin_memory: bool | None = True, prefetch_factor: int = 8, persistent_workers: bool | None = True, 
+                gradient_accumlation_steps: int = 16, learning_rate: float = 0.0001, weight_decay: float | None = 0.1, 
+                eps: float | None = 0.000001, warmup_steps: int = 150, epochs: int | None = 1, path_ckpt_step: str | None = 'checkpoint.pt', loss: str = 'cosine_embedding', 
+                use_wandb: bool = True):
         
-        super().__init__(model, tokenizer_name, path_datatrain, device, path_dataeval, 
-                         batch_size, shuffle, num_workers, pin_memory, prefetch_factor, persistent_workers, gradient_accumlation_steps,
-                         learning_rate, weight_decay, eps, warmup_steps, epochs, path_ckpt_step, use_wandb)
+        super().__init__(model, tokenizer_name, data_train, device, data_eval, batch_size, shuffle, num_workers, 
+                        pin_memory, prefetch_factor, persistent_workers, gradient_accumlation_steps,
+                        learning_rate, weight_decay, eps, warmup_steps, epochs, path_ckpt_step, use_wandb)
         
-
+        
         self.loss= loss 
+        self.task= RULE_LOSS_TASK[self.loss]
+        
+        ### variant loss support for training embedding model 
+        assert loss in [BINARY_CROSS_ENTROPY_LOSS, 
+                        CATEGORICAL_CROSS_ENTROPY_LOSS, 
+                        COSINE_SIMILARITY_LOSS, 
+                        CONSTRASTIVE_LOSS,
+                        TRIPLET_LOSS,
+                        IN_BATCH_NEGATIVES_LOSS]
+        
+        self.criterion= {
+            BINARY_CROSS_ENTROPY_LOSS: nn.BCEWithLogitsLoss(),
+            CATEGORICAL_CROSS_ENTROPY_LOSS: nn.CrossEntropyLoss(),
+            COSINE_SIMILARITY_LOSS: CosineSimilarityLoss(), 
+            CONSTRASTIVE_LOSS: ContrastiveLoss(margin= 0.5), 
+            TRIPLET_LOSS: TripletLoss(margin= 0.5), 
+            IN_BATCH_NEGATIVES_LOSS: InBatchNegativeLoss(temp= 0.05)
 
-        assert loss in ['sigmoid_crossentropy', 'categorical_crossentropy', 'cosine_similarity', 'contrastive']
-        if loss == 'sigmoid_crossentropy': 
-            self.criterion= nn.BCEWithLogitsLoss()
-        elif loss== 'categorical_crossentropy': 
-            self.criterion= nn.CrossEntropyLoss(label_smoothing= 0.1)
-        elif loss == 'cosine_similarity': 
-            self.criterion= CosineSimilarityLoss()
-        elif loss == 'contrastive': 
-            self.criterion= ContrastiveLoss(margin= 0.5)
+        }[loss]
+        
+        self.collate= SentABCollate(tokenizer_name, mode= "bi_encoder", type_backbone= type_backbone, 
+                                    max_length= max_length, task= self.task, augment_func= augment_func)
+    
+    def _setup_dataset(self):
+        train_dataset= SentABDL(self.data_train, task= self.task)
 
-        self.type_dataset= SentABDL
-        self.collate= SentABCollate(self.tokenizer_name, mode= "bi_encoder")
+        if self.data_eval: 
+            return train_dataset, SentABDL(self.data_eval, task= self.task)
+        
+        return train_dataset, None
 
-    def _compute_loss(self, data):
-        label= data['label'].to(self.device, non_blocking=True)
+    def _compute_loss(self, data):        
+        if self.task != EMBEDDING_RANKER_NUMERICAL: 
 
-        if self.loss == 'cosine_similarity' or self.loss == 'contrastive': 
-            embed_a= self.model_lm.get_embedding(
-                dict((i, j.to(self.device, non_blocking=True)) for i, j in data['x_1'].items() if i in ['input_ids', 'attention_mask'])
+            if self.loss == CONSTRASTIVE_LOSS: 
+                output= self.model_lm(
+                    (
+                    dict((i, j.to(self.device, non_blocking=True)) for i, j in data['anchor'].items() if i in ['input_ids', 'attention_mask']),
+                    dict((i, j.to(self.device, non_blocking=True)) for i, j in data['label'].items() if i in ['input_ids', 'attention_mask'])
+                    )
                 )
+                return self.criterion(output[0], output[1], data['label'])
             
-            embed_b= self.model_lm.get_embedding(
-                dict((i, j.to(self.device, non_blocking=True)) for i, j in data['x_2'].items() if i in ['input_ids', 'attention_mask'])
+
+            if self.loss == TRIPLET_LOSS: 
+                output= self.model_lm(
+                    (
+                    dict((i, j.to(self.device, non_blocking=True)) for i, j in data['anchor'].items() if i in ['input_ids', 'attention_mask']),
+                    dict((i, j.to(self.device, non_blocking=True)) for i, j in data['pos'].items() if i in ['input_ids', 'attention_mask']),
+                    dict((i, j.to(self.device, non_blocking=True)) for i, j in data['neg'].items() if i in ['input_ids', 'attention_mask'])
+                    )
                 )
-            return self.criterion(embed_a, embed_b, label.to(dtype= torch.float32))
+                return self.criterion(*output)
+            
+            if self.loss == IN_BATCH_NEGATIVES_LOSS: 
+                data_input= [
+                    dict((i, j.to(self.device, non_blocking=True)) for i, j in data['anchor'].items() if i in ['input_ids', 'attention_mask']),
+                    dict((i, j.to(self.device, non_blocking=True)) for i, j in data['pos'].items() if i in ['input_ids', 'attention_mask']),
+                ]
 
-        output= self.model_lm(
-            dict((i, j.to(self.device, non_blocking=True)) for i, j in data['x_1'].items() if i in ['input_ids', 'attention_mask']),
-            dict((i, j.to(self.device, non_blocking=True)) for i, j in data['x_2'].items() if i in ['input_ids', 'attention_mask'])
-        )
-        
-        
-        if self.loss== 'sigmoid_crossentropy':
-            output= output.view(-1,)
-            label= label.to(dtype= torch.float32)
-
-        loss= self.criterion(output, label)
-        
-        return loss 
+                if len(data) > 2: 
+                    for i in range(len(data)-2): 
+                        data_input.append(
+                            dict((i, j.to(self.device, non_blocking=True)) for i, j in data[f'hard_neg_{i+1}'].items() if i in ['input_ids', 'attention_mask'])
+                        )
+                
+                output= self.model_lm(data_input)
+                return self.criterion(output)
+            
+        elif self.task == EMBEDDING_RANKER_NUMERICAL: 
+            label= data['label'].to(self.device, non_blocking=True)
+            output= self.model_lm(
+                (
+                dict((i, j.to(self.device, non_blocking=True)) for i, j in data['x_1'].items() if i in ['input_ids', 'attention_mask']),
+                dict((i, j.to(self.device, non_blocking=True)) for i, j in data['x_2'].items() if i in ['input_ids', 'attention_mask']),
+                )
+            )
+            if self.loss== COSINE_SIMILARITY_LOSS: 
+                return self.criterion(output[0], output[1], label.to(dtype= torch.float32))
+            
+            if self.loss== BINARY_CROSS_ENTROPY_LOSS:
+                output= output.view(-1,)
+                label= label.to(dtype= torch.float32)
+            
+            return self.criterion(output, label) 
+            
     
     def _evaluate(self): 
         self.model_lm.eval()
@@ -329,29 +408,42 @@ class TrainerBiEncoder(Trainer):
     
 
 class TrainerCrossEncoder(Trainer):
-    def __init__(self, model:Type[CrossEncoder], tokenizer_name: type[str], path_datatrain: str, 
-                 device: type[torch.device], path_dataeval: str = None, batch_size: int = 8, shuffle: bool | None = True, 
-                 num_workers: int = 16, pin_memory: bool | None = True, prefetch_factor: int = 8, persistent_workers: bool | None = True, 
-                 gradient_accumlation_steps: int = 16, learning_rate: float = 0.0001, weight_decay: float | None = 0.1, 
-                 eps: float | None = 0.000001, warmup_steps: int = 150, epochs: int | None = 1, path_ckpt_step: str | None = 'checkpoint.pt', loss: str= 'sigmoid_crossentropy',
-                 use_wandb: bool = True):
+    def __init__(self, model:Type[CrossEncoder], tokenizer_name: type[str], data_train: Union[pd.DataFrame, str], device: type[torch.device], 
+                max_length: Type[int]= 256, type_backbone: str= 'bert', augment_func: Type[TextAugment]= None,
+                data_eval: Union[pd.DataFrame, str]= None, batch_size: int = 8, shuffle: bool | None = True, 
+                num_workers: int = 16, pin_memory: bool | None = True, prefetch_factor: int = 8, persistent_workers: bool | None = True, 
+                gradient_accumlation_steps: int = 16, learning_rate: float = 0.0001, weight_decay: float | None = 0.1, 
+                eps: float | None = 0.000001, warmup_steps: int = 150, epochs: int | None = 1, path_ckpt_step: str | None = 'checkpoint.pt', loss: str= 'sigmoid_crossentropy',
+                use_wandb: bool = True):
         
-        super().__init__(model, tokenizer_name, path_datatrain, device, path_dataeval, 
-                         batch_size, shuffle, num_workers, pin_memory, prefetch_factor, persistent_workers, gradient_accumlation_steps,
-                         learning_rate, weight_decay, eps, warmup_steps, epochs, path_ckpt_step, use_wandb)
+        super().__init__(model, tokenizer_name, data_train, device, data_eval, batch_size, shuffle, num_workers, 
+                        pin_memory, prefetch_factor, persistent_workers, gradient_accumlation_steps,
+                        learning_rate, weight_decay, eps, warmup_steps, epochs, path_ckpt_step, use_wandb)
         
-        self.loss= loss
-        assert loss in ['sigmoid_crossentropy', 'categorical_crossentropy', 'mselog']
-        if loss == 'sigmoid_crossentropy': 
-            self.criterion= nn.BCEWithLogitsLoss()
-        elif loss== 'categorical_crossentropy': 
-            self.criterion= nn.CrossEntropyLoss(label_smoothing= 0.1)
-        elif loss== 'mselog': 
-            self.criterion= MSELogLoss()
+        self.loss= loss 
+        self.task= RULE_LOSS_TASK[self.loss]
+        
+        assert loss in [BINARY_CROSS_ENTROPY_LOSS, 
+                        CATEGORICAL_CROSS_ENTROPY_LOSS, 
+                        MSE_LOGARIT]
+        
+        self.criterion= {
+            BINARY_CROSS_ENTROPY_LOSS: nn.BCEWithLogitsLoss(),
+            CATEGORICAL_CROSS_ENTROPY_LOSS: nn.CrossEntropyLoss(),
+            MSE_LOGARIT: MSELogLoss()
+        }[loss]
 
-        self.type_dataset= SentABDL
-        self.collate= SentABCollate(self.tokenizer_name, mode= "cross_encoder")
+        self.collate= SentABCollate(tokenizer_name, mode= "cross_encoder", type_backbone= type_backbone, 
+                                    max_length= max_length, task= self.task, augment_func= augment_func)
         
+    def _setup_dataset(self):
+        train_dataset= SentABDL(self.data_train, task= self.task)
+
+        if self.data_eval: 
+            return train_dataset, SentABDL(self.data_eval, task= self.task)
+        
+        return train_dataset, None
+
     def _compute_loss(self, data):
         output= self.model_lm(dict(
             (i, j.to(self.device, non_blocking=True)) for i, j in data['x'].items() if i in ['input_ids', 'attention_mask'])
@@ -359,16 +451,10 @@ class TrainerCrossEncoder(Trainer):
         
         label= data['label'].to(self.device, non_blocking=True)
         
-        if self.loss== 'sigmoid_crossentropy':
+        if self.loss== BINARY_CROSS_ENTROPY_LOSS or self.loss== MSE_LOGARIT:
             output= output.view(-1,)
             label= label.to(dtype= torch.float32)
-        elif self.loss== 'mselog':
-            output= output.view(-1,) 
-            label=  label.to(dtype= torch.float32)
-
-        loss= self.criterion(output, label)
-        
-        return loss 
+        return self.criterion(output, label)
     
     def _evaluate(self): 
         self.model_lm.eval()
