@@ -28,7 +28,7 @@ class is_df_relate_task:
             raise ValueError('The dataset is required to have 2 columns while using with contrastive loss') 
         elif self.task == EMBEDDING_TRIPLET and len(dataframe.columns) != 3: 
             raise ValueError('The dataset is required to have 3 columns while using triplet loss')
-        elif self.task == EMBEDDING_IN_BATCH_NEGATIVES and (len(dataframe.columns) < 2 or len(dataframe.columns) == 3): 
+        elif self.task == EMBEDDING_IN_BATCH_NEGATIVES and len(dataframe.columns) < 2: 
             raise ValueError('The dataset is required to have 2 or 3 columns while using in-batch negatives loss')
         
         return dataframe

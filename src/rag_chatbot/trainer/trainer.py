@@ -115,7 +115,7 @@ class Trainer:
                                           num_workers= self.num_workers, pin_memory= self.pin_memory, 
                                           prefetch_factor= self.prefetch_factor, persistent_workers= self.persistent_workers)
         
-        if self.path_dataeval: 
+        if self.data_eval: 
             self.dataloader_eval= DataLoader(eval_dataset, batch_size= self.batch_size,
                                              collate_fn= self.collate, shuffle= False)
     
