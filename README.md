@@ -16,5 +16,8 @@ See this [examples](examples)
 ## Inference 
 See this [notebooks](notebook)
 
+## Features
+We will continue to update and improve this library. At the same time, we will publish some models that we have trained
+
 ## Contacts
 If you have any questions about this repo, please contact me (nduc0231@gmail.com)
