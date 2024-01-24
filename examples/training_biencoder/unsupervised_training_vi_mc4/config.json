@@ -1,16 +1,17 @@
 {
-    "name": "ranker_vi_sts_phobert_grad", 
+    "name": "biology_embedding_phobert", 
     "tokenizer_name": "vinai/phobert-base-v2", 
     "architectures": {
         "model_name": "vinai/phobert-base-v2",
         "type_backbone": "bert", 
+        "concat_embeddings": false,
         "dropout": 0.1, 
         "using_hidden_states": true, 
-        "hidden_dim": 768,
+        "hidden_dim": 384,
         "num_label": 1,
         "required_grad": true
     },
-    "loss": "binary_crossentropy",
+    "loss": "in_batch_negatives",
     "max_length": 256,
     "batch_size": 32,
     "shuffle": true, 
@@ -24,11 +25,11 @@
     "eps": 1e-6, 
     "warmup_steps": 150, 
     "epochs": 10, 
-    "path_ckpt_step": "step_ranker_vi_sts_phobert.pt", 
+    "path_ckpt_step": "step_biology_embedding_phobert.pt", 
     "verbose": 1, 
     "step_save": 100, 
-    "path_ckpt_epoch": "best_ranker_vi_sts_phobert.pt", 
-    "path_train": "stsb_process/train.json",
+    "path_ckpt_epoch": "best_biology_embedding_phobert.pt", 
+    "path_train": "biology_vi_mc4_0000.json",
     "path_eval": null, 
     "device": "cuda"
 }

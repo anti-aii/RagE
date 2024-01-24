@@ -38,7 +38,7 @@ class SentABDL(Dataset):
     def __init__(self, path_or_dataframe: Union[str, pd.DataFrame], task: str):        
         assert task in [
             EMBEDDING_RANKER_NUMERICAL,  # cosine_sim, sigmoid, categorical 
-            EMBEDDING_CONTRASTIVE, # constrastive loss  
+            EMBEDDING_CONTRASTIVE, # contrastive loss  
             EMBEDDING_TRIPLET, # triplet loss 
             EMBEDDING_IN_BATCH_NEGATIVES # in-batch negatives  
         ]
@@ -61,7 +61,7 @@ class SentABCollate:
         assert mode in ['bi_encoder', 'cross_encoder']
         assert task in [
             EMBEDDING_RANKER_NUMERICAL,  # cosine_sim, sigmoid, categorical 
-            EMBEDDING_CONTRASTIVE, # constrastive loss  
+            EMBEDDING_CONTRASTIVE, # contrastive loss  
             EMBEDDING_TRIPLET, # triplet loss 
             EMBEDDING_IN_BATCH_NEGATIVES # in-batch negatives    
         ]
@@ -111,8 +111,8 @@ class SentABCollate:
                 'label': torch.tensor(label)
             }
     
-    def _return_type_constrastive(self, data): 
-        # support constrastive loss 
+    def _return_type_contrastive(self, data): 
+        # support contrastive loss 
         sent1, sent2, label= zip(*data)
 
         if self.augument_func: 
@@ -162,7 +162,7 @@ class SentABCollate:
     def _choice_return(self): 
         return {
             EMBEDDING_RANKER_NUMERICAL: self._return_type_numerical,  
-            EMBEDDING_CONTRASTIVE: self._return_type_constrastive,
+            EMBEDDING_CONTRASTIVE: self._return_type_contrastive,
             EMBEDDING_TRIPLET: self._return_type_triplet, 
             EMBEDDING_IN_BATCH_NEGATIVES: self._return_type_inbatch_negative  
         }[self.task]

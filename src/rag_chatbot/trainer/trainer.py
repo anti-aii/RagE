@@ -39,8 +39,8 @@ from ..constant import (
     BINARY_CROSS_ENTROPY_LOSS,
     CATEGORICAL_CROSS_ENTROPY_LOSS,
     MSE_LOGARIT,
-    COSINE_SIMILARITY_LOSS,
-    CONSTRASTIVE_LOSS, 
+    COSINE_SIMILARITY_LOSS, 
+    CONTRASTIVE_LOSS,
     TRIPLET_LOSS, 
     IN_BATCH_NEGATIVES_LOSS
 )
@@ -312,7 +312,7 @@ class TrainerBiEncoder(Trainer):  ## support
         assert loss in [BINARY_CROSS_ENTROPY_LOSS, 
                         CATEGORICAL_CROSS_ENTROPY_LOSS, 
                         COSINE_SIMILARITY_LOSS, 
-                        CONSTRASTIVE_LOSS,
+                        CONTRASTIVE_LOSS,
                         TRIPLET_LOSS,
                         IN_BATCH_NEGATIVES_LOSS]
         
@@ -320,7 +320,7 @@ class TrainerBiEncoder(Trainer):  ## support
             BINARY_CROSS_ENTROPY_LOSS: nn.BCEWithLogitsLoss(),
             CATEGORICAL_CROSS_ENTROPY_LOSS: nn.CrossEntropyLoss(),
             COSINE_SIMILARITY_LOSS: CosineSimilarityLoss(), 
-            CONSTRASTIVE_LOSS: ContrastiveLoss(margin= 0.5), 
+            CONTRASTIVE_LOSS: ContrastiveLoss(margin= 0.5), 
             TRIPLET_LOSS: TripletLoss(margin= 0.5), 
             IN_BATCH_NEGATIVES_LOSS: InBatchNegativeLoss(temp= 0.05)
 
@@ -340,12 +340,13 @@ class TrainerBiEncoder(Trainer):  ## support
     def _compute_loss(self, data):        
         if self.task != EMBEDDING_RANKER_NUMERICAL: 
 
-            if self.loss == CONSTRASTIVE_LOSS: 
+            if self.loss == CONTRASTIVE_LOSS: 
                 output= self.model_lm(
                     (
                     dict((i, j.to(self.device, non_blocking=True)) for i, j in data['anchor'].items() if i in ['input_ids', 'attention_mask']),
                     dict((i, j.to(self.device, non_blocking=True)) for i, j in data['label'].items() if i in ['input_ids', 'attention_mask'])
-                    )
+                    ),
+                    return_embeddings= True
                 )
                 return self.criterion(output[0], output[1], data['label'])
             
@@ -356,7 +357,8 @@ class TrainerBiEncoder(Trainer):  ## support
                     dict((i, j.to(self.device, non_blocking=True)) for i, j in data['anchor'].items() if i in ['input_ids', 'attention_mask']),
                     dict((i, j.to(self.device, non_blocking=True)) for i, j in data['pos'].items() if i in ['input_ids', 'attention_mask']),
                     dict((i, j.to(self.device, non_blocking=True)) for i, j in data['neg'].items() if i in ['input_ids', 'attention_mask'])
-                    )
+                    ),
+                    return_embeddings= True
                 )
                 return self.criterion(*output)
             
@@ -372,20 +374,22 @@ class TrainerBiEncoder(Trainer):  ## support
                             dict((i, j.to(self.device, non_blocking=True)) for i, j in data[f'hard_neg_{i+1}'].items() if i in ['input_ids', 'attention_mask'])
                         )
                 
-                output= self.model_lm(data_input)
+                output= self.model_lm(data_input, return_embeddings= True)
                 return self.criterion(output)
             
         elif self.task == EMBEDDING_RANKER_NUMERICAL: 
             label= data['label'].to(self.device, non_blocking=True)
-            output= self.model_lm(
-                (
+            data_input= (
                 dict((i, j.to(self.device, non_blocking=True)) for i, j in data['x_1'].items() if i in ['input_ids', 'attention_mask']),
                 dict((i, j.to(self.device, non_blocking=True)) for i, j in data['x_2'].items() if i in ['input_ids', 'attention_mask']),
-                )
             )
+
             if self.loss== COSINE_SIMILARITY_LOSS: 
+                output= self.model_lm(data_input, return_embeddings= True)
                 return self.criterion(output[0], output[1], label.to(dtype= torch.float32))
             
+            output= self.model_lm(data_input)
+
             if self.loss== BINARY_CROSS_ENTROPY_LOSS:
                 output= output.view(-1,)
                 label= label.to(dtype= torch.float32)

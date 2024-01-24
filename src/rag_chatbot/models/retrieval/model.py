@@ -54,16 +54,20 @@ class BiEncoder(nn.Module):
 
         return x 
     
-    def forward(self, inputs): 
-        if self.concat_output_embeddding and len(inputs) == 2: 
+    def forward(self, inputs, return_embeddings= False): 
+
+        if return_embeddings:
+            return [self.get_embedding(i) for i in inputs]
+        
+        if self.concat_embeddings and len(inputs) == 2: 
             x_left = self.get_embedding(inputs[0])
             x_right= self.get_embedding(inputs[1])
             x = torch.concat((x_left, x_right, torch.norm(x_right - x_left, p= 2, dim= -1).view(-1, 1)), dim= -1)
             x = self.drp2(x)
             x = self.fc(x)
             return x 
-        else: 
-            return (self.get_embedding(i) for i in inputs) 
+        
+        raise ValueError("Input Error")
 
 ### Sentence Bert
 ### By default, while training sentence bert, we use cosine similarity loss 

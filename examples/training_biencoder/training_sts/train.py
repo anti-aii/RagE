@@ -2,7 +2,7 @@ import json
 import os 
 import torch 
 import wandb
-from rag_chatbot import TrainerCrossEncoder, CrossEncoder
+from rag_chatbot import TrainerBiEncoder, BiEncoder
 from rag_chatbot.constant import (
     BINARY_CROSS_ENTROPY_LOSS,
     CATEGORICAL_CROSS_ENTROPY_LOSS,
@@ -41,7 +41,7 @@ if __name__ == "__main__":
     device= torch.device(config['device']) 
 
     wandb.init(
-        project= "ranker-model-training",
+        project= "embedding-model-training",
         name= config['name'], 
         config= {
             'model': config['model_name'], 
@@ -55,15 +55,16 @@ if __name__ == "__main__":
         }
     )
 
-    model= CrossEncoder(model_name= config_model['model_name'], type_backbone= config_model['type_backbone'],
-                     using_hidden_states= config_model['using_hidden_states'], required_grad= config_model['required_grad'], 
-                     dropout= config_model['dropout'], hidden_dim= config_model['hidden_dim'], num_label= config_model['num_label'])
+    model= BiEncoder(model_name= config_model['model_name'], type_backbone= config_model['type_backbone'],
+                     using_hidden_states= config_model['using_hidden_states'], concat_embeddings= config_model['concat_embeddings'],
+                     required_grad= config_model['required_grad'], dropout= config_model['dropout'], 
+                     hidden_dim= config_model['hidden_dim'], num_label= config_model['num_label'])
 
     # model.load_state_dict(torch.load('best_sentence_ckpt_zalo_grad.pt')['model_state_dict'])
 
     model.to(device)
 
-    trainer= TrainerCrossEncoder(model= model, tokenizer_name= config['tokenizer_name'],
+    trainer= TrainerBiEncoder(model= model, tokenizer_name= config['tokenizer_name'],
                 data_train= config['path_train'], max_length= config['max_length'], type_backbone= config_model['type_backbone'], 
                 data_eval= config['path_eval'], batch_size= config['batch_size'], shuffle= config['shuffle'], 
                 num_workers= config['num_workers'], pin_memory= config['pin_memory'], prefetch_factor= config['prefetch_factor'], 
