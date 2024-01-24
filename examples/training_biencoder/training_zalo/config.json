@@ -4,14 +4,14 @@
     "architectures": {
         "model_name": "vinai/phobert-base-v2",
         "type_backbone": "bert", 
-        "concat_embeddings": true,
+        "concat_embeddings": false,
         "dropout": 0.1, 
         "using_hidden_states": true, 
         "hidden_dim": 768,
         "num_label": 1,
         "required_grad": true
     },
-    "loss": "binary_cross_entropy",
+    "loss": "contrastive",
     "max_length": 256,
     "batch_size": 32,
     "shuffle": true, 

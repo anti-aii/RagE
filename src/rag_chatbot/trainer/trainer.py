@@ -343,8 +343,8 @@ class TrainerBiEncoder(Trainer):  ## support
             if self.loss == CONTRASTIVE_LOSS: 
                 output= self.model_lm(
                     (
-                    dict((i, j.to(self.device, non_blocking=True)) for i, j in data['anchor'].items() if i in ['input_ids', 'attention_mask']),
-                    dict((i, j.to(self.device, non_blocking=True)) for i, j in data['label'].items() if i in ['input_ids', 'attention_mask'])
+                    dict((i, j.to(self.device, non_blocking=True)) for i, j in data['sent1'].items() if i in ['input_ids', 'attention_mask']),
+                    dict((i, j.to(self.device, non_blocking=True)) for i, j in data['sent2'].items() if i in ['input_ids', 'attention_mask'])
                     ),
                     return_embeddings= True
                 )

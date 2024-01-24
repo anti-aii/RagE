@@ -18,7 +18,7 @@ class InBatchNegativeLoss(nn.Module):
         embedding_b= torch.cat(embeddings[1:])
 
         cos_score= cos_sim(embedding_a, embedding_b) / self.temp # b x b 
-        labels= torch.arange(len(cos_score))
+        labels= torch.arange(len(cos_score), device= cos_score.device)
 
         return self.loss_fct(cos_score, labels)
     

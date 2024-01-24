@@ -44,9 +44,9 @@ if __name__ == "__main__":
         project= "ranker-model-training",
         name= config['name'], 
         config= {
-            'model': config['model_name'], 
-            'required_grad': config['required_grad'],
-            'num_label': config['num_label'],
+            'model': config_model['model_name'], 
+            'required_grad': config_model['required_grad'],
+            'num_label': config_model['num_label'],
             'loss': config['loss'],
             'batch_size': config['batch_size'],
             'epochs': config['epochs'], 

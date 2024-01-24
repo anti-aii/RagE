@@ -24,8 +24,8 @@ class is_df_relate_task:
     def __call__(self, dataframe: pd.DataFrame): 
         if self.task == EMBEDDING_RANKER_NUMERICAL and len(dataframe.columns) != 3: 
             raise ValueError('The dataset is required to have 3 columns while using with cosine_sim, sigmoid, categorical_crossentroy loss')
-        elif self.task == EMBEDDING_CONTRASTIVE and len(dataframe.columns) != 2: 
-            raise ValueError('The dataset is required to have 2 columns while using with contrastive loss') 
+        elif self.task == EMBEDDING_CONTRASTIVE and len(dataframe.columns) != 3: 
+            raise ValueError('The dataset is required to have 3 columns while using with contrastive loss') 
         elif self.task == EMBEDDING_TRIPLET and len(dataframe.columns) != 3: 
             raise ValueError('The dataset is required to have 3 columns while using triplet loss')
         elif self.task == EMBEDDING_IN_BATCH_NEGATIVES and len(dataframe.columns) < 2: 

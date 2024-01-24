@@ -29,7 +29,7 @@
     "verbose": 1, 
     "step_save": 100, 
     "path_ckpt_epoch": "best_biology_embedding_phobert.pt", 
-    "path_train": "biology_vi_mc4_0000.json",
+    "path_train": "vi_mc4_biology_36k_demo.json",
     "path_eval": null, 
     "device": "cuda"
 }
