@@ -6,6 +6,7 @@ from torch.utils.data import DataLoader
 from torch.cuda.amp import autocast, GradScaler 
 from transformers.optimization import get_cosine_schedule_with_warmup
 from bitsandbytes.optim import PagedAdamW8bit
+from datasets import Dataset
 import loralib as lora 
 import wandb 
 
@@ -35,7 +36,7 @@ from ..constant import (
     EMBEDDING_IN_BATCH_NEGATIVES
 )
 
-from ..constant import (
+from ..losses import (
     BINARY_CROSS_ENTROPY_LOSS,
     CATEGORICAL_CROSS_ENTROPY_LOSS,
     MSE_LOGARIT,
@@ -55,10 +56,16 @@ from ..utils.augment_text import TextAugment
 
 ## default eval is loss 
 
+class ArgumentTrainer: 
+    pass 
+
+class ArgumentDataset: 
+    pass 
+
 class Trainer: 
     def __init__(self, 
-        model, tokenizer_name: Type[str], data_train: Union[pd.DataFrame, str], device: Type[torch.device], 
-        data_eval: Union[pd.DataFrame, str]= None, batch_size: int = 8, shuffle: Optional[bool]= True, num_workers: int= 16, 
+        model, tokenizer_name: Type[str], data_train: Union[pd.DataFrame, str, Dataset], device: Type[torch.device], 
+        data_eval: Union[pd.DataFrame, str, Dataset]= None, batch_size: int = 8, shuffle: Optional[bool]= True, num_workers: int= 16, 
         pin_memory: Optional[bool]= True, prefetch_factor: int= 8, persistent_workers: Optional[bool]= True, 
         gradient_accumlation_steps: int= 16, learning_rate: float= 1e-4, weight_decay: Optional[float]= 0.1, 
         eps: Optional[float]= 1e-6, warmup_steps: int= 150, epochs: Optional[int]= 1, path_ckpt_step: Optional[str]= 'checkpoint.pt',

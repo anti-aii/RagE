@@ -2,7 +2,8 @@ import pandas as pd
 import torch 
 from torch.utils.data import Dataset
 from transformers import AutoTokenizer
-from ..datareader import DataReader 
+from datasets import Dataset
+from ..datareader import DataReader
 from ...utils.augment_text import TextAugment
 from typing import Union
 
@@ -21,35 +22,40 @@ class is_df_relate_task:
     def  __init__(self, task: str): 
         self.task= task 
     
-    def __call__(self, dataframe: pd.DataFrame): 
-        if self.task == EMBEDDING_RANKER_NUMERICAL and len(dataframe.columns) != 3: 
+    def __call__(self, data: Union[pd.DataFrame, Dataset]):
+        columns= data.column_names if isinstance(data, Dataset) else data.columns
+
+        if self.task == EMBEDDING_RANKER_NUMERICAL and len(columns) != 3: 
             raise ValueError('The dataset is required to have 3 columns while using with cosine_sim, sigmoid, categorical_crossentroy loss')
-        elif self.task == EMBEDDING_CONTRASTIVE and len(dataframe.columns) != 3: 
+        elif self.task == EMBEDDING_CONTRASTIVE and len(columns) != 3: 
             raise ValueError('The dataset is required to have 3 columns while using with contrastive loss') 
-        elif self.task == EMBEDDING_TRIPLET and len(dataframe.columns) != 3: 
+        elif self.task == EMBEDDING_TRIPLET and len(columns) != 3: 
             raise ValueError('The dataset is required to have 3 columns while using triplet loss')
-        elif self.task == EMBEDDING_IN_BATCH_NEGATIVES and len(dataframe.columns) < 2: 
-            raise ValueError('The dataset is required to have 2 or 3 columns while using in-batch negatives loss')
+        # elif self.task != EMBEDDING_IN_BATCH_NEGATIVES: 
+        #     raise ValueError('The dataset is required to have 1, 2 or 3 columns while using in-batch negatives loss')
         
-        return dataframe
+        return data
 
 class SentABDL(Dataset): 
     
-    def __init__(self, path_or_dataframe: Union[str, pd.DataFrame], task: str):        
+    def __init__(self, path_or_data: Union[str, pd.DataFrame, Dataset], task: str):        
         assert task in [
             EMBEDDING_RANKER_NUMERICAL,  # cosine_sim, sigmoid, categorical 
             EMBEDDING_CONTRASTIVE, # contrastive loss  
             EMBEDDING_TRIPLET, # triplet loss 
             EMBEDDING_IN_BATCH_NEGATIVES # in-batch negatives  
         ]
-        self.df= DataReader(path_or_dataframe, condition_func= is_df_relate_task(task)).read()
+        self.data= DataReader(path_or_data, condition_func= is_df_relate_task(task)).read()
         self.task= task
 
     def __len__(self): 
-        return len(self.df)
+        return len(self.data)
 
     def __getitem__(self, index): 
-        return self.df.iloc[index, :]
+        if isinstance(self.data, Dataset): 
+            return self.data[index].values()
+        else:  # dataframe 
+            return self.data.iloc[index, :]
     
 class SentABCollate: 
     def __init__(self, tokenizer_name: str= 'vinai/phobert-base-v2', max_length= 256, 
@@ -139,7 +145,10 @@ class SentABCollate:
 
     def _return_type_inbatch_negative(self, data): 
         zip_data= list(zip(*data))
-        anchor, pos= zip_data[0: 2]
+        if len(zip_data) == 1: 
+            anchor, pos= zip_data[0], zip_data[0]
+        else: 
+            anchor, pos= zip_data[0: 2]
         hard_neg= zip_data[2:] # support multiple hard negatives
 
         if self.augument_func: 
