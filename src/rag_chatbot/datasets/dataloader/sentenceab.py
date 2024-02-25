@@ -1,8 +1,8 @@
 import pandas as pd 
 import torch 
-from torch.utils.data import Dataset
+from  torch.utils.data import Dataset 
+import datasets
 from transformers import AutoTokenizer
-from datasets import Dataset
 from ..datareader import DataReader
 from ...utils.augment_text import TextAugment
 from typing import Union
@@ -22,8 +22,8 @@ class is_df_relate_task:
     def  __init__(self, task: str): 
         self.task= task 
     
-    def __call__(self, data: Union[pd.DataFrame, Dataset]):
-        columns= data.column_names if isinstance(data, Dataset) else data.columns
+    def __call__(self, data: Union[pd.DataFrame, datasets.Dataset]):
+        columns= data.column_names if isinstance(data, datasets.Dataset) else data.columns
 
         if self.task == EMBEDDING_RANKER_NUMERICAL and len(columns) != 3: 
             raise ValueError('The dataset is required to have 3 columns while using with cosine_sim, sigmoid, categorical_crossentroy loss')
@@ -38,7 +38,7 @@ class is_df_relate_task:
 
 class SentABDL(Dataset): 
     
-    def __init__(self, path_or_data: Union[str, pd.DataFrame, Dataset], task: str):        
+    def __init__(self, path_or_data: Union[str, pd.DataFrame, datasets.Dataset], task: str):        
         assert task in [
             EMBEDDING_RANKER_NUMERICAL,  # cosine_sim, sigmoid, categorical 
             EMBEDDING_CONTRASTIVE, # contrastive loss  
@@ -52,7 +52,7 @@ class SentABDL(Dataset):
         return len(self.data)
 
     def __getitem__(self, index): 
-        if isinstance(self.data, Dataset): 
+        if isinstance(self.data, datasets.Dataset): 
             return self.data[index].values()
         else:  # dataframe 
             return self.data.iloc[index, :]
