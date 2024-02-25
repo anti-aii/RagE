@@ -4,6 +4,7 @@ _dep= ["transformers>= 4.31.0",
        "torch>= 2.0.0", 
        "bitsandbytes>= 0.39.1", 
        "loralib>= 0.1.2", 
+       "datasets >= 2.17.1",
        "peft >= 0.4.0", 
        "pandas >= 2.0.3",
        "scipy >= 1.11.1", 
@@ -16,7 +17,7 @@ with open("README.md", 'r', encoding= 'utf-8') as f:
 
 setup(
     name='rag_chatbot',
-    version= '0.4.6', 
+    version= '0.4.7', 
     description= 'A library that supports building the fastest and lightest chatbot or Q&A system for Vietnamese, using Retrieval Augmented Generation (RAG)', 
     long_description= long_description,
     author= 'Nguyễn Tiến Đạt', 

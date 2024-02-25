@@ -23,4 +23,4 @@ from .trainer import (
 )
 from rag_chatbot.constant import RESPONSE_RULE
 
-__version__= "0.4.6"
+__version__= "0.4.7"
