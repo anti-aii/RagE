@@ -44,6 +44,8 @@ class CrossEncoder(nn.Module):
 
         if self.using_hidden_states: 
             embedding= self.extract(embedding.hidden_states)
+        else:
+            embedding= embedding.last_hidden_state
 
         if self.strategy_pooling == "attention_context": 
             embedding= self.drp1(embedding)

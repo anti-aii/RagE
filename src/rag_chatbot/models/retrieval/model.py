@@ -50,6 +50,8 @@ class BiEncoder(nn.Module):
 
         if self.using_hidden_states: 
             embedding= self.extract(embedding.hidden_states)
+        else: 
+            embedding= embedding.last_hidden_state
 
         # x= self.lnrom(embedding_enhance)
         if self.strategy_pooling == "attention_context": 
