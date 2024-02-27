@@ -2,7 +2,7 @@ from typing import List
 import torch 
 import torch.nn as nn 
 from transformers import AutoTokenizer
-from ..componets import AttentionWithContext, ExtraRoberta, load_backbone
+from ..componets import ExtraRoberta, load_backbone, PoolingStrategy
 
 
 ### Cross-encoder
@@ -10,10 +10,14 @@ class CrossEncoder(nn.Module):
     # using 
     def __init__(self, model_name= 'vinai/phobert-base-v2', type_backbone= 'bert',
                  using_hidden_states= True, required_grad= False, 
-                 dropout= 0.1, hidden_dim= 768, num_label= 1):
+                 strategy_pooling= "attention_context", dropout= 0.1, hidden_dim= 768, num_label= 1):
         super(CrossEncoder, self).__init__()
         
         self.using_hidden_states= using_hidden_states
+        self.strategy_pooling= strategy_pooling
+
+        self.pooling= PoolingStrategy(strategy= strategy_pooling, units= hidden_dim)
+        
         self.model= load_backbone(model_name, type_backbone= type_backbone, 
                                 using_hidden_states= using_hidden_states)
 
@@ -23,11 +27,12 @@ class CrossEncoder(nn.Module):
         # define 
         if self.using_hidden_states:
             self.extract= ExtraRoberta(method= 'mean')
-        self.attention_context= AttentionWithContext(units= hidden_dim)
+        
+        if strategy_pooling == "attention_context": 
+            self.drp1= nn.Dropout(p= dropout)
 
         # dropout 
-        self.drp1= nn.Dropout(p= dropout)
-        self.drp2= nn.Dropout(p= dropout)
+        self.dropout_embedding= nn.Dropout(p= dropout)
 
         # defind output 
         self.fc= nn.Linear(hidden_dim, num_label)
@@ -40,15 +45,16 @@ class CrossEncoder(nn.Module):
         if self.using_hidden_states: 
             embedding= self.extract(embedding.hidden_states)
 
-        x= self.drp1(embedding)
-        x= self.attention_context(x)
+        if self.strategy_pooling == "attention_context": 
+            embedding= self.drp1(embedding)
+        x= self.pooling(embedding)
 
         return x 
     
     
     def forward(self, inputs): 
         x= self.get_embedding(inputs)
-        x= self.drp2(x)
+        x= self.dropout_embedding(x)
         x= self.fc(x)
 
         return x 

@@ -2,17 +2,20 @@ from typing import List
 import torch 
 import torch.nn as nn 
 from transformers import AutoModel, AutoTokenizer
-from ..componets import AttentionWithContext, ExtraRoberta, load_backbone
+from ..componets import ExtraRoberta, load_backbone, PoolingStrategy
 
 ### Bi-encoder 
 class BiEncoder(nn.Module):
     def __init__(self, model_name= 'vinai/phobert-base-v2', type_backbone= 'bert',
                  using_hidden_states= True, concat_embeddings= False, required_grad= True, 
-                 dropout= 0.1, hidden_dim= 768, num_label= None):
+                 strategy_pooling= "attention_context", dropout= 0.1, hidden_dim= 768, num_label= None):
         super(BiEncoder, self).__init__()
 
         self.using_hidden_states= using_hidden_states
         self.concat_embeddings= concat_embeddings
+        self.strategy_pooling= strategy_pooling
+
+        self.pooling= PoolingStrategy(strategy= strategy_pooling, units= hidden_dim)
 
         self.model= load_backbone(model_name, type_backbone= type_backbone, 
                                 using_hidden_states= using_hidden_states)
@@ -23,11 +26,11 @@ class BiEncoder(nn.Module):
         # define 
         if self.using_hidden_states:
             self.extract= ExtraRoberta(method= 'mean')
-            
-        self.attention_context= AttentionWithContext(units= hidden_dim)
+        
 
         # dropout
-        self.drp1= nn.Dropout(p= dropout)
+        if strategy_pooling == "attention_context":
+            self.drp1= nn.Dropout(p= dropout)
         
         # defind output 
         if self.concat_embeddings:  
@@ -49,8 +52,10 @@ class BiEncoder(nn.Module):
             embedding= self.extract(embedding.hidden_states)
 
         # x= self.lnrom(embedding_enhance)
-        x= self.drp1(embedding)
-        x= self.attention_context(x)
+        if self.strategy_pooling == "attention_context": 
+            embedding= self.drp1(embedding)
+
+        x= self.pooling(embedding)
 
         return x 
     
