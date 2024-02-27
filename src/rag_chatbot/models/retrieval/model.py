@@ -17,7 +17,7 @@ class BiEncoder(nn.Module):
 
         self.pooling= PoolingStrategy(strategy= strategy_pooling, units= hidden_dim)
 
-        self.model= load_backbone(model_name, type_backbone= type_backbone, 
+        self.model= load_backbone(model_name, type_backbone= type_backbone, dropout= dropout,
                                 using_hidden_states= using_hidden_states)
 
         if not required_grad:
