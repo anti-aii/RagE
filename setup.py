@@ -17,7 +17,7 @@ with open("README.md", 'r', encoding= 'utf-8') as f:
 
 setup(
     name='rag_chatbot',
-    version= '0.4.7', 
+    version= '0.4.8', 
     description= 'A library that supports building the fastest and lightest chatbot or Q&A system for Vietnamese, using Retrieval Augmented Generation (RAG)', 
     long_description= long_description,
     author= 'Nguyễn Tiến Đạt', 
