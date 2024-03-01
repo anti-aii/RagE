@@ -15,10 +15,10 @@ class BiEncoder(nn.Module):
         self.concat_embeddings= concat_embeddings
         self.strategy_pooling= strategy_pooling
 
-        self.pooling= PoolingStrategy(strategy= strategy_pooling, units= hidden_dim)
-
         self.model= load_backbone(model_name, type_backbone= type_backbone, dropout= dropout,
                                 using_hidden_states= using_hidden_states)
+        
+        self.pooling= PoolingStrategy(strategy= strategy_pooling, units= hidden_dim)
 
         if not required_grad:
             self.model.requires_grad_(False)
@@ -29,7 +29,7 @@ class BiEncoder(nn.Module):
         
 
         # dropout
-        if strategy_pooling == "attention_context":
+        if strategy_pooling in ["attention_context", "dense_avg", "dense_first", "dense_max"]:
             self.drp1= nn.Dropout(p= dropout)
         
         # defind output 
@@ -54,7 +54,7 @@ class BiEncoder(nn.Module):
             embedding= embedding.last_hidden_state
 
         # x= self.lnrom(embedding_enhance)
-        if self.strategy_pooling == "attention_context": 
+        if self.strategy_pooling in ["attention_context", "dense_avg", "dense_first", "dense_max"]: 
             embedding= self.drp1(embedding)
 
         x= self.pooling(embedding)
@@ -81,10 +81,10 @@ class BiEncoder(nn.Module):
 class SentenceEmbedding: 
     def __init__(self, model_name= 'vinai/phobert-base-v2', type_backbone= 'bert',
                  using_hidden_states= True, concat_embeddings= False, required_grad= True, num_label= 1,
-                 dropout= 0.1, hidden_dim= 768, torch_dtype= torch.float16, device= None):
+                 strategy_pooling= "attention_context", dropout= 0.1, hidden_dim= 768, torch_dtype= torch.float16, device= None):
     
         self.model= BiEncoder(model_name, type_backbone, using_hidden_states, concat_embeddings, 
-                              required_grad, dropout, hidden_dim, num_label)
+                              required_grad, strategy_pooling, dropout, hidden_dim, num_label)
         # self.model.to(device, dtype= torch_dtype)
         self.tokenizer= AutoTokenizer.from_pretrained(model_name, use_fast= True, add_prefix_space= True)
         self.device= device 

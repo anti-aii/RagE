@@ -15,11 +15,11 @@ class CrossEncoder(nn.Module):
         
         self.using_hidden_states= using_hidden_states
         self.strategy_pooling= strategy_pooling
-
-        self.pooling= PoolingStrategy(strategy= strategy_pooling, units= hidden_dim)
         
         self.model= load_backbone(model_name, type_backbone= type_backbone, dropout= dropout,
                                 using_hidden_states= using_hidden_states)
+        
+        self.pooling= PoolingStrategy(strategy= strategy_pooling, units= hidden_dim)
 
         if not required_grad:
             self.model.requires_grad_(False)
@@ -28,7 +28,7 @@ class CrossEncoder(nn.Module):
         if self.using_hidden_states:
             self.extract= ExtraRoberta(method= 'mean')
         
-        if strategy_pooling == "attention_context": 
+        if strategy_pooling in ["attention_context", "dense_avg", "dense_first", "dense_max"]: 
             self.drp1= nn.Dropout(p= dropout)
 
         # dropout 
@@ -47,7 +47,7 @@ class CrossEncoder(nn.Module):
         else:
             embedding= embedding.last_hidden_state
 
-        if self.strategy_pooling == "attention_context": 
+        if self.strategy_pooling in ["attention_context", "dense_avg", "dense_first", "dense_max"]: 
             embedding= self.drp1(embedding)
         x= self.pooling(embedding)
 
@@ -67,10 +67,10 @@ class CrossEncoder(nn.Module):
 class Ranker: 
     def __init__(self, model_name='vinai/phobert-base-v2', type_backbone= 'bert', 
                  using_hidden_states= True, required_grad=False, dropout=0.1, 
-                 hidden_dim=768, num_label=1, torch_dtype= torch.float16, device= None):
+                 strategy_pooling= "attention_context", hidden_dim=768, num_label=1, torch_dtype= torch.float16, device= None):
 
         self.model= CrossEncoder(model_name, type_backbone, using_hidden_states, 
-                                 required_grad, dropout, hidden_dim, num_label)
+                                 required_grad, strategy_pooling, dropout, hidden_dim, num_label)
         # self.model.to(device, dtype= torch_dtype)
         self.tokenizer= AutoTokenizer.from_pretrained(model_name, add_prefix_space= True, use_fast= True)
         self.device= device
