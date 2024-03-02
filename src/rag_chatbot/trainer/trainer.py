@@ -210,11 +210,10 @@ class Trainer:
         for epoch in range(1, self.epochs + 1): 
             train_loss= self._train_on_epoch(index_grad, verbose, step_save)
             # val_loss = evaluate()
-            print('-' * 59)
+
             print('-' * 59 + f'\nEnd of epoch {epoch} - loss: {train_loss}\n' + '-' * 59)
-            print('-' * 59)
             
-            if self.path_dataeval:
+            if self.data_eval:
                 print('=' * 10 + ' EVALUATE ' + '=' * 10)
                 val_loss= self._evaluate()
                 print(f'Evaluate loss: {val_loss}')
