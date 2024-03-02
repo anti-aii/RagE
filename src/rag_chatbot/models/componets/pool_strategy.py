@@ -19,11 +19,11 @@ class PoolingStrategy(nn.Module):
         self.strategy= strategy 
 
     def forward(self, hidden_states): 
-        if self.strategy == "max": 
+        if self.strategy == "max" or self.strategy == "dense_max": 
             embedding= torch.max(hidden_states, dim= 1)
-        if self.strategy == "mean": 
+        if self.strategy == "mean" or self.strategy == "dense_avg": 
             embedding= torch.mean(hidden_states, dim= 1)
-        if self.strategy == "first": 
+        if self.strategy == "first" or self.strategy == "dense_first": 
             embedding= hidden_states[:, 0, :]
 
         if self.strategy == "attention_context": 
