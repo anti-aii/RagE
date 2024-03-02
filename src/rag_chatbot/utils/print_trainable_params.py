@@ -1,7 +1,7 @@
-from typing import Union
-from ..models import GenAnsModel, BiEncoder, CrossEncoder
+from typing import Type
+import torch 
 
-def print_trainable_parameters(model: Union[GenAnsModel, BiEncoder, CrossEncoder]): 
+def print_trainable_parameters(model: Type[torch.nn.Module]): 
     trainable_params = 0
     all_param = 0
     # if isinstance(model, CrossEncoder) or isinstance(model, BiEncoder): 

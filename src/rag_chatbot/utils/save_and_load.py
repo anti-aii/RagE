@@ -2,9 +2,9 @@ import torch
 import loralib as lora
 
 
-from typing import Union
+from typing import Type
 
-def save_model(model: torch.nn.Module, filename: str, mode: str= "adapt_weight", 
+def save_model(model: Type[torch.nn.Module], filename: str, mode: str= "adapt_weight", 
                key= 'model_state_dict', metada: dict= None):
     assert mode in ['adapt_weight', 'full_weight']
     if  mode == 'adapt_weight':  # support LLMs
@@ -18,7 +18,7 @@ def save_model(model: torch.nn.Module, filename: str, mode: str= "adapt_weight",
     elif key== None or key == "": 
         torch.save(weight, filename)
 
-def load_model(model: torch.nn.Module, filename: str, key: str= 'model_state_dict'): 
+def load_model(model: Type[torch.nn.Module], filename: str, key: str= 'model_state_dict'): 
     if key: 
         ckpt= torch.load(filename, map_location= "cpu")[key]
     else: 
