@@ -12,7 +12,7 @@ class TextAugment:
        return self.forward(text)
     
 
-class NoiseDropout(TextAugment): 
+class NoiseMask(TextAugment): 
     def __init__(self, p= 0.1, mask_token= "<mask>"):
         self.p= p # using bernouli 
         self.mask_token= mask_token 
