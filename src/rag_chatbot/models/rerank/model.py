@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn 
 from transformers import AutoTokenizer
 from ..componets import ExtraRoberta, load_backbone, PoolingStrategy
+from ...utils import load_model
 
 
 ### Cross-encoder
@@ -77,7 +78,7 @@ class Ranker:
         self.torch_dtype= torch_dtype
 
     def load_ckpt(self, path):
-        self.model.load_state_dict(torch.load(path, map_location= 'cpu')['model_state_dict'])
+        load_model(self.model, filename= path, key= "model_state_dict")
         self.model.to(self.device, dtype= self.torch_dtype)
 
     def _preprocess(self):

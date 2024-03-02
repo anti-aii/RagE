@@ -5,6 +5,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 from torch.cuda.amp import autocast, GradScaler 
 from transformers.optimization import get_cosine_schedule_with_warmup
+from tqdm import tqdm 
 from bitsandbytes.optim import PagedAdamW8bit
 from datasets import Dataset
 import loralib as lora 
@@ -47,11 +48,10 @@ from ..losses import (
 )
 from ..constant import RULE_LOSS_TASK
 from ..utils.augment_text import TextAugment
+from ..utils import save_model
 
-# os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
-# os.environ['WANDB_DIR'] = os.getcwd() + '/wandb/'
-# os.environ['WANDB_CACHE_DIR'] = os.getcwd() + '/wandb/.cache/'
-# os.environ['WANDB_CONFIG_DIR'] = os.getcwd() + '/wandb/.config/'
+import logging 
+logging.basicConfig(level= logging.INFO)
 
 
 ## default eval is loss 
@@ -143,11 +143,17 @@ class Trainer:
         self._setup_optim() 
         self._setup_mxprecision()
     
-    def _save_ckpt(self, param, ckpt_path= 'checkpoint.pt'): 
-        return torch.save(param, ckpt_path)
-    
     def _compute_loss(self, data):
         pass 
+
+    def _save_ckpt(self, path, metadata): 
+        if isinstance(self.model_lm, GenAnsModel):
+            # LLMs
+            save_model(self.model_lm.model, filename= path, mode= "adapt_weight", 
+                       key= "lora", metada= metadata)
+        else: 
+            save_model(self.model_lm, filename= path, mode= "full_weight", 
+                       key= "model_state_dict", metada= metadata)
 
     def _train_on_epoch(self, index_grad, verbose: Optional[int]= 1, step_save: Optional[int]= 1000): 
         self.model_lm.train()
@@ -184,24 +190,17 @@ class Trainer:
                 index_grad[0] += 1 
 
             if (idx + 1) % step_save ==0:
-                if isinstance(self.model_lm, GenAnsModel):
-                    self._save_ckpt({'step': idx + 1,
-                                'lora': lora.lora_state_dict(self.model_lm.model),
-                                'optimizer_state_dict': self.optimizer.state_dict(),
-                                'scheduler': self.scheduler.state_dict(),    # HERE IS THE CHANGE
-                                    },  self.ckpt_step)
-                else: 
-                    self._save_ckpt({'step': idx + 1,
-                                'model_state_dict': self.model_lm.state_dict(),
-                                'optimizer_state_dict': self.optimizer.state_dict(),
-                                'scheduler': self.scheduler.state_dict(),    # HERE IS THE CHANGE
-                                    },  self.ckpt_step)
+                self._save_ckpt(path= self.ckpt_step, metadata= {
+                    'step': idx + 1, 
+                    'optimizer_state_dict': self.optimizer.state_dict(),
+                    'scheduler': self.scheduler.state_dict(),   
+                })
         
         return (total_loss / total_count) * self.grad_accum
     
     def _evaluate(self):
         pass 
-    
+
     def fit(self, verbose: Type[int]= 1, step_save: Type[int]= 1000, path_ckpt_epoch: Type[str]= 'best_ckpt.pt'):
         index_grad= [1] 
         print('=' * 10 + ' Setup training' + '=' * 10)
@@ -212,7 +211,7 @@ class Trainer:
             train_loss= self._train_on_epoch(index_grad, verbose, step_save)
             # val_loss = evaluate()
             print('-' * 59)
-            print(f'End of epoch {epoch} - loss: {train_loss}')
+            print('-' * 59 + f'End of epoch {epoch} - loss: {train_loss}' + '-' * 59)
             print('-' * 59)
             
             if self.path_dataeval:
@@ -223,36 +222,14 @@ class Trainer:
                 if val_loss < log_loss: 
                     log_loss = val_loss
                     print(f'Saving checkpoint have best {log_loss}')
-                    # torch.save(lora.lora_state_dict(model), 'bloomz_lora_domain.pt')
-
-                    if isinstance(self.model_lm, GenAnsModel): 
-                        self._save_ckpt({'epoch': epoch,
-                                'lora': lora.lora_state_dict(self.mode_lm.model),
-                                'scheduler': self.scheduler.state_dict(),    # HERE IS THE CHANGE
-                                },  path_ckpt_epoch)
-                    else: 
-                        self._save_ckpt({'epoch': epoch, 
-                                    'model_state_dict': self.model_lm.state_dict(), 
-                                    'scheduler': self.scheduler.state_dict()}, 
-                                    path_ckpt_epoch)
+                    self._save_ckpt(path= path_ckpt_epoch)
                         
 
 
             if train_loss < log_loss: # saving 
                 log_loss = train_loss
                 print(f'Saving checkpoint have best {log_loss}')
-                # torch.save(lora.lora_state_dict(model), 'bloomz_lora_domain.pt')
-
-                if isinstance(self.model_lm, GenAnsModel): 
-                    self._save_ckpt({'epoch': epoch,
-                            'lora': lora.lora_state_dict(self.model_lm.model),
-                            'scheduler': self.scheduler.state_dict(),    # HERE IS THE CHANGE
-                            },  path_ckpt_epoch)
-                else: 
-                    self._save_ckpt({'epoch': epoch, 
-                                'model_state_dict': self.model_lm.state_dict(), 
-                                'scheduler': self.scheduler.state_dict()},
-                                path_ckpt_epoch)
+                self._save_ckpt(path= path_ckpt_epoch)
         
 
 class TrainerGenAns(Trainer):

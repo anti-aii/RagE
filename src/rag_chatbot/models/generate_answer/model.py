@@ -7,6 +7,7 @@ from peft import (
     TaskType
 )
 import loralib as lora
+from ...utils import load_model
 
 ### Only support Bloom and T5
 
@@ -62,17 +63,6 @@ class GenAnsModel:
         
         self.model.lm_head= CastOutputToFloat(self.model.lm_head)
 
-    def print_trainable_parameters(self): 
-        trainable_params = 0
-        all_param = 0
-        for _, param in self.model.named_parameters():
-            all_param += param.numel()
-            if param.requires_grad:
-                trainable_params += param.numel()
-        print(
-            f"trainable params: {trainable_params} || all params: {all_param} || trainable%: {100 * trainable_params / all_param}"
-        )
-
     def  return_state(self):
         return self._state
     
@@ -82,13 +72,12 @@ class GenAnsModel:
     def train(self):
         self.model.train()
     
-    def _save_ckpt(self, ckpt_dir: Optional[str]= 'ckpt_lora.pt'): 
-        ## only save lora parameters 
-        torch.save({'lora': lora.lora_state_dict(self.model)}, ckpt_dir)
+    # def _save_ckpt(self, ckpt_dir: Optional[str]= 'ckpt_lora.pt'): 
+    #     ## only save lora parameters 
+    #     torch.save({'lora': lora.lora_state_dict(self.model)}, ckpt_dir)
 
     def _load_ckpt(self, ckpt_dir: Optional[str]= 'ckpt_lora.pt'): 
-        lora_weight= torch.load(ckpt_dir, map_location= 'cpu') 
-        self.model.load_state_dict(lora_weight['lora'], strict= False)
+        load_model(self.model, filename= ckpt_dir, key= "lora")
         
 
     def prepare_inference(self, ckpt_dir: Type[str], merge_lora: Optional[bool]= True, 
