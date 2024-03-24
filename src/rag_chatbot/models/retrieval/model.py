@@ -99,13 +99,23 @@ class SentenceEmbedding:
         if self.model.training: 
             self.model.eval() 
     
+    def _normalize_embedding(self, input, norm:str= 'l2'): 
+        assert int(norm.strip('l'))
+
+        p= int(norm.strip('l')) 
+        if p < 1: 
+            raise ValueError('norm >= 1')
+
+        norm_weight= torch.sum(input ** p, dim= -1) ** (1/p)
+        return input/ norm_weight.view(-1, 1)
+    
     def _preprocess_tokenize(self, text, max_legnth= 256): 
         # 256 phobert, t5 512 
         inputs= self.tokenizer.batch_encode_plus(text, return_tensors= 'pt', 
                             padding= 'longest', max_length= max_legnth, truncation= True)
         return inputs
     
-    def encode(self, text: List[str], max_length= 256): 
+    def encode(self, text: List[str], max_length= 256, normalize_embedding= None): 
         # PhoBERT max length 256, T5 max length 512
         self._preprocess()
         # batch_text= list(map(lambda x: TextFormat.preprocess_text(x), text))
@@ -115,7 +125,10 @@ class SentenceEmbedding:
         with torch.no_grad(): 
             embedding= self.model.get_embedding(dict( (i, j.to(self.device)) for i,j in inputs.items()))
                 
-        return torch.tensor(embedding) 
+        if normalize_embedding: 
+            return self._normalize_embedding(torch.tensor(embedding), norm= normalize_embedding)
+        
+        return torch.tensor(embedding)
 
 
 
