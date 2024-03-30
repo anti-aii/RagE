@@ -1,9 +1,10 @@
 from typing import List
+import numpy as np 
 import torch 
 import torch.nn as nn 
 from transformers import AutoModel, AutoTokenizer
 from ..componets import ExtraRoberta, load_backbone, PoolingStrategy
-from ...utils import load_model
+from ...utils import load_model, Progbar
 
 ### Bi-encoder 
 class BiEncoder(nn.Module):
@@ -114,22 +115,27 @@ class SentenceEmbedding:
         inputs= self.tokenizer.batch_encode_plus(text, return_tensors= 'pt', 
                             padding= 'longest', max_length= max_legnth, truncation= True)
         return inputs
-    
-    def encode(self, text: List[str], max_length= 256, normalize_embedding= None): 
-        # PhoBERT max length 256, T5 max length 512
-        self._preprocess()
-        # batch_text= list(map(lambda x: TextFormat.preprocess_text(x), text))
-        inputs= self._preprocess_tokenize(text, max_length)
-        # print(inputs)
 
+    def _encode_per_batch(self, text: List[str], max_length= 256, normalize_embedding= None):
+        inputs= self._preprocess_tokenize(text, max_length)
         with torch.no_grad(): 
             embedding= self.model.get_embedding(dict( (i, j.to(self.device)) for i,j in inputs.items()))
-                
         if normalize_embedding: 
             return self._normalize_embedding(torch.tensor(embedding), norm= normalize_embedding)
         
         return torch.tensor(embedding)
+    
+    def encode(self, text: List[str], batch_size= 64, max_length= 256, normalize_embedding= None, verbose= 1): 
+        # PhoBERT max length 256, T5 max length 512
+        embeddings= []
+        batch_text= np.array_split(text, int(len(text) / batch_size))
+        pbi= Progbar(len(text), verbose= verbose)
 
+        for text in batch_text: 
+            embeddings.append(text.tolist(), max_length, normalize_embedding)
+            pbi.update(batch_size)
+
+        return torch.concat(embeddings)
 
 
 
