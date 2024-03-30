@@ -17,6 +17,8 @@ import time
 import sys
 import numpy as np 
 
+from .io_utils import print_out 
+
 class Progbar:
     """Displays a progress bar.
 
@@ -184,8 +186,7 @@ class Progbar:
                 info += "\n"
 
             message += info
-            sys.stdout.write(message)
-            sys.stdout.flush()
+            print_out(message)
             message = ""
 
         elif self.verbose == 2:
@@ -215,8 +216,7 @@ class Progbar:
                     )
                     info += "\n"
                 message += info
-                sys.stdout.write(message)
-                sys.stdout.flush()
+                print_out(message)
                 message = ""
 
         self._last_update = now
