@@ -92,8 +92,8 @@ class SentenceEmbedding:
         self.device= device 
         self.torch_dtype= torch_dtype
     
-    def load_ckpt(self, path): 
-        load_model(self.model, filename= path, key= "model_state_dict")
+    def load_ckpt(self, path, multi_ckpt= False, key= "model_state_dict"): 
+        load_model(self.model, path= path, multi_ckpt= multi_ckpt, key= key)
         self.model.to(self.device, dtype= self.torch_dtype)
 
     def _preprocess(self): 
@@ -128,12 +128,16 @@ class SentenceEmbedding:
     def encode(self, text: List[str], batch_size= 64, max_length= 256, normalize_embedding= None, verbose= 1): 
         # PhoBERT max length 256, T5 max length 512
         embeddings= []
-        batch_text= np.array_split(text, int(len(text) / batch_size))
-        pbi= Progbar(len(text), verbose= verbose)
+        self._preprocess()
+        if batch_size > len(text): 
+            batch_size= len(text)
 
-        for text in batch_text: 
-            embeddings.append(text.tolist(), max_length, normalize_embedding)
-            pbi.update(batch_size)
+        batch_text= np.array_split(text, len(text)// batch_size)
+        pbi= Progbar(len(text), verbose= verbose, unit_name= "Raws")
+
+        for batch in batch_text: 
+            embeddings.append(self._encode_per_batch(batch.tolist(), max_length, normalize_embedding))
+            pbi.add(len(batch))
 
         return torch.concat(embeddings)
 

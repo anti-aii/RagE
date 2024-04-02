@@ -1,9 +1,11 @@
 from typing import List
+import numpy as np 
 import torch 
 import torch.nn as nn 
 from transformers import AutoTokenizer
 from ..componets import ExtraRoberta, load_backbone, PoolingStrategy
 from ...utils import load_model
+from ...utils.process_bar import Progbar
 
 
 ### Cross-encoder
@@ -77,8 +79,8 @@ class Ranker:
         self.device= device
         self.torch_dtype= torch_dtype
 
-    def load_ckpt(self, path):
-        load_model(self.model, filename= path, key= "model_state_dict")
+    def load_ckpt(self, path, multi_ckpt= False, key: str= 'model_state_dict'):
+        load_model(self.model, filename= path, multi_ckpt= multi_ckpt, key= key)
         self.model.to(self.device, dtype= self.torch_dtype)
 
     def _preprocess(self):
@@ -89,9 +91,8 @@ class Ranker:
         inputs= self.tokenizer.batch_encode_plus(text, return_tensors= 'pt', 
                             padding= 'longest', max_length= max_length, truncation= True)
         return inputs
-
-    def predict(self, text: List[list[str]], max_length= 256):  # [[a, b], [c, d]]
-        self._preprocess()
+    
+    def _predict_per_batch(self, text: List[list[str]], max_length= 256): 
         batch_text= list(map(lambda x: self.tokenizer.sep_token.join([x[0], x[1]]), text))
         inputs= self._preprocess_tokenize(batch_text, max_length)
 
@@ -99,7 +100,25 @@ class Ranker:
             embedding= self.model(dict( (i, j.to(self.device)) for i,j in inputs.items()))
         
         return nn.Sigmoid()(torch.tensor(embedding))
-        
+    
+
+    def predict(self, text: List[list[str]], batch_size= 64, max_length= 256, verbose= 1):  # [[a, b], [c, d]]
+        results= [] 
+        self._preprocess()
+
+        if batch_size > len(text):
+            batch_size= len(text)
+
+        batch_text= np.array_split(text, len(text)// batch_size)
+        pbi= Progbar(len(text), verbose= verbose, unit_name= "Raws")
+
+        for batch in batch_text: 
+            results.append(self._predict_per_batch(batch.tolist(), max_length))
+
+            pbi.add(len(batch))
+
+        return torch.concat(results)
+
 
     
     
