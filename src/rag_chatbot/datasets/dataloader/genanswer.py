@@ -2,13 +2,15 @@ from typing import Union
 import copy
 import pandas as pd 
 from torch.utils.data import Dataset 
-from transformers import AutoTokenizer
+import datasets
+from transformers import AutoTokenizer, PreTrainedTokenizer
+
 from ..datareader import DataReader 
 
 ### only support for bloomz 
 class GenAnsDL(Dataset): 
   
-  def __init__(self, path_data_or_dataframe: Union[pd.DataFrame, str]):
+  def __init__(self, path_data_or_dataframe: Union[pd.DataFrame, str, datasets.Dataset]):
     self.df= DataReader(path_data_or_dataframe).read()
 
   def __len__(self):
@@ -19,9 +21,13 @@ class GenAnsDL(Dataset):
     return x 
 
 class GenAnsCollate: 
-  def __init__(self, tokenizer_name: str= 'bigscience/tokenizer', max_length= 256):
-    
-    self.tokenizer= AutoTokenizer.from_pretrained(tokenizer_name, use_fast= True)
+  def __init__(self, tokenizer: Union[str, PreTrainedTokenizer]= 'bigscience/tokenizer', max_length= 256):
+
+    if isinstance(tokenizer, str):
+        self.tokenizer= AutoTokenizer.from_pretrained(tokenizer, use_fast= True)
+    elif isinstance(tokenizer, PreTrainedTokenizer): 
+        self.tokenizer= tokenizer 
+
     self.max_length= max_length
     self.tokenizer.padding_side= 'left'
   

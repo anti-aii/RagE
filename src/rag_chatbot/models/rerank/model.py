@@ -3,13 +3,14 @@ import numpy as np
 import torch 
 import torch.nn as nn 
 from transformers import AutoTokenizer
+from ..model_rag import ModelRag
 from ..componets import ExtraRoberta, load_backbone, PoolingStrategy
 from ...utils import load_model
 from ...utils.process_bar import Progbar
 
 
 ### Cross-encoder
-class CrossEncoder(nn.Module): 
+class CrossEncoder(ModelRag): 
     # using 
     def __init__(self, model_name= 'vinai/phobert-base-v2', type_backbone= 'bert',
                  using_hidden_states= True, required_grad= False, 
@@ -18,6 +19,8 @@ class CrossEncoder(nn.Module):
         
         self.using_hidden_states= using_hidden_states
         self.strategy_pooling= strategy_pooling
+        self.type_backbone= type_backbone
+        self.requires_grad_base_model= required_grad
         
         self.model= load_backbone(model_name, type_backbone= type_backbone, dropout= dropout,
                                 using_hidden_states= using_hidden_states)
@@ -56,6 +59,24 @@ class CrossEncoder(nn.Module):
 
         return x 
     
+    def _get_config_model_base(self):
+        return {
+            "model_base": self.model.__class__.__name__, 
+            "required_grad_base_model": self.requires_grad_base_model, 
+            "using_hidden_states": self.using_hidden_states,
+        }
+
+    def  _get_config_addition_weight(self):
+        return {
+            "strategy_pooling": self.strategy_pooling
+        }
+    
+    def _get_config(self):
+        return {
+            "architecture": self._get_config_model_base(), 
+            "pooling": self._get_config_addition_weight()
+        }
+    
     
     def forward(self, inputs): 
         x= self.get_embedding(inputs)
@@ -80,7 +101,8 @@ class Ranker:
         self.torch_dtype= torch_dtype
 
     def load_ckpt(self, path, multi_ckpt= False, key: str= 'model_state_dict'):
-        load_model(self.model, filename= path, multi_ckpt= multi_ckpt, key= key)
+        # load_model(self.model, filename= path, multi_ckpt= multi_ckpt, key= key)
+        self.model.load(path= path, multi_ckpt= multi_ckpt, key= key)
         self.model.to(self.device, dtype= self.torch_dtype)
 
     def _preprocess(self):

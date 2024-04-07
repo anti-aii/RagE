@@ -1,14 +1,14 @@
 from typing import Union
-from datasets import Dataset
+import datasets
 import pandas as pd 
 
 ## reader frin file 
 class DataReader: 
-    def __init__(self, path_or_data: Union[str, pd.DataFrame, Dataset], condition_func= None): 
+    def __init__(self, path_or_data: Union[str, pd.DataFrame, datasets.Dataset], condition_func= None): 
         self.__filename= None 
         self.__data= None 
 
-        if isinstance(path_or_data, pd.DataFrame) or isinstance(path_or_data, Dataset): 
+        if isinstance(path_or_data, pd.DataFrame) or isinstance(path_or_data, datasets.Dataset): 
             self.__data= path_or_data 
         elif isinstance(path_or_data, str): 
             self.__filename= path_or_data 

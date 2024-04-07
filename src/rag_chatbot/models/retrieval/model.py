@@ -5,9 +5,10 @@ import torch.nn as nn
 from transformers import AutoModel, AutoTokenizer
 from ..componets import ExtraRoberta, load_backbone, PoolingStrategy
 from ...utils import load_model, Progbar
+from ...models.model_rag import ModelRag 
 
 ### Bi-encoder 
-class BiEncoder(nn.Module):
+class BiEncoder(ModelRag):
     def __init__(self, model_name= 'vinai/phobert-base-v2', type_backbone= 'bert',
                  using_hidden_states= True, concat_embeddings= False, required_grad= True, 
                  strategy_pooling= "attention_context", dropout= 0.1, hidden_dim= 768, num_label= None):
@@ -16,6 +17,8 @@ class BiEncoder(nn.Module):
         self.using_hidden_states= using_hidden_states
         self.concat_embeddings= concat_embeddings
         self.strategy_pooling= strategy_pooling
+        self.type_backbone= type_backbone
+        self.requires_grad_base_model= required_grad
 
         self.model= load_backbone(model_name, type_backbone= type_backbone, dropout= dropout,
                                 using_hidden_states= using_hidden_states)
@@ -61,7 +64,26 @@ class BiEncoder(nn.Module):
 
         x= self.pooling(embedding)
 
-        return x 
+        return x
+    
+    def _get_config_model_base(self):
+        return {
+            "model_base": self.model.__class__.__name__, 
+            "required_grad_base_model": self.requires_grad_base_model, 
+            "using_hidden_states": self.using_hidden_states,
+            "concat_embeddings": self.concat_embeddings,
+        }
+
+    def  _get_config_addition_weight(self):
+        return {
+            "strategy_pooling": self.strategy_pooling
+        }
+    
+    def _get_config(self):
+        return {
+            "architecture": self._get_config_model_base(), 
+            "pooling": self._get_config_addition_weight()
+        }
     
     def forward(self, inputs, return_embeddings= False): 
 
@@ -93,7 +115,7 @@ class SentenceEmbedding:
         self.torch_dtype= torch_dtype
     
     def load_ckpt(self, path, multi_ckpt= False, key= "model_state_dict"): 
-        load_model(self.model, path= path, multi_ckpt= multi_ckpt, key= key)
+        self.model.load(path= path, multi_ckpt= multi_ckpt, key= key)
         self.model.to(self.device, dtype= self.torch_dtype)
 
     def _preprocess(self): 

@@ -17,7 +17,7 @@ import time
 import sys
 import numpy as np 
 
-from .io_utils import print_out 
+from .io_utils import print_out
 
 class Progbar:
     """Displays a progress bar.

@@ -71,7 +71,7 @@ def load_split_weight(path: str):
 
             
 
-def save_model(model: Type[torch.nn.Module], filename: str, mode: str= "auto_detect", limit_size= 6,
+def save_model(model: Type[torch.nn.Module], path: str, mode: str= "auto_detect", limit_size= 6,
                size_limit_file= 3, storage_units= 'gb', key:str= 'model_state_dict', metada: dict= None):
     assert mode in ['trainable_weight', 'full_weight', 'multi_ckpt'
                     'auto_detect']
@@ -98,19 +98,19 @@ def save_model(model: Type[torch.nn.Module], filename: str, mode: str= "auto_det
         
 
     if  mode == 'trainable_weight':  # support LLMs
-        weight= save_only_trainable_weight(model, filename= filename)
+        weight= save_only_trainable_weight(model, filename= path)
     elif mode== 'full_weight':  # only support bert based
         weight= model.state_dict()
     elif mode== 'multi_ckpt':
-        save_split_weight(model, path= filename, size_limit_file= size_limit_file,
+        save_split_weight(model, path= path, size_limit_file= size_limit_file,
                           storage_units= storage_units)
         return None
         
     if key== None or key == "": # not support save metadata 
-        torch.save(weight, filename)
+        torch.save(weight, path)
     else: 
         torch.save({key: weight,
-                    'metadata': metada}, filename)
+                    'metadata': metada}, path)
     
 
 def load_model(model: Type[torch.nn.Module], path: str, multi_ckpt= False, key: str= 'model_state_dict'): 

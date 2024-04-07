@@ -2,12 +2,12 @@ import pandas as pd
 import torch 
 from  torch.utils.data import Dataset 
 import datasets
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, PreTrainedTokenizer
 from ..datareader import DataReader
 from ...utils.augment_text import TextAugment
 from typing import Union
 
-from ...constant import (
+from ...losses import (
     EMBEDDING_RANKER_NUMERICAL,
     EMBEDDING_CONTRASTIVE,
     EMBEDDING_TRIPLET,
@@ -58,7 +58,7 @@ class SentABDL(Dataset):
             return self.data.iloc[index, :]
     
 class SentABCollate: 
-    def __init__(self, tokenizer_name: str= 'vinai/phobert-base-v2', max_length= 256, 
+    def __init__(self, tokenizer: Union[str, PreTrainedTokenizer], max_length= 256, 
                     mode: str= 'cross_encoder', type_backbone= 'bert', task= None, 
                     augment_func: TextAugment= None):
         
@@ -71,8 +71,12 @@ class SentABCollate:
             EMBEDDING_TRIPLET, # triplet loss 
             EMBEDDING_IN_BATCH_NEGATIVES # in-batch negatives    
         ]
-        self.tokenizer= AutoTokenizer.from_pretrained(tokenizer_name, add_prefix_space= True,
+        if isinstance(tokenizer, str):
+            self.tokenizer= AutoTokenizer.from_pretrained(tokenizer, add_prefix_space= True,
                                                       use_fast= True)
+        elif isinstance(tokenizer, PreTrainedTokenizer): 
+            self.tokenizer= tokenizer 
+            
         if type_backbone == 't5': 
             logger.warning("T5 or mt5 are currently not supported for unsupervised training")
         if mode == 'cross_encoder' and task != EMBEDDING_RANKER_NUMERICAL: 
