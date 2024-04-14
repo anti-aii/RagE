@@ -7,6 +7,7 @@ from ..model_rag import ModelRag
 from ..componets import ExtraRoberta, load_backbone, PoolingStrategy
 from ...utils import load_model
 from ...utils.process_bar import Progbar
+from ...utils.convert_data import _convert_data 
 
 
 ### Cross-encoder
@@ -124,7 +125,7 @@ class Ranker:
         return nn.Sigmoid()(torch.tensor(embedding))
     
 
-    def predict(self, text: List[list[str]], batch_size= 64, max_length= 256, verbose= 1):  # [[a, b], [c, d]]
+    def predict(self, text: List[list[str]], batch_size= 64, max_length= 256, return_tensors= 'np', verbose= 1):  # [[a, b], [c, d]]
         results= [] 
         self._preprocess()
 
@@ -132,14 +133,14 @@ class Ranker:
             batch_size= len(text)
 
         batch_text= np.array_split(text, len(text)// batch_size)
-        pbi= Progbar(len(text), verbose= verbose, unit_name= "Raws")
+        pbi= Progbar(len(text), verbose= verbose, unit_name= "Samples")
 
         for batch in batch_text: 
             results.append(self._predict_per_batch(batch.tolist(), max_length))
 
             pbi.add(len(batch))
 
-        return torch.concat(results)
+        return _convert_data(torch.concat(results).view(-1,).clone().detach(), return_tensors= return_tensors)
 
 
     

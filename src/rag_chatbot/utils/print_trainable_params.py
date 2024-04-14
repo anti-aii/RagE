@@ -1,12 +1,12 @@
 from typing import Type
 import torch
 import logging  
-from .io_utils import print_out
+from .io_utils import _print_out
 
 
 logger= logging.Logger(__name__)
 
-def print_trainable_parameters(model: Type[torch.nn.Module]): 
+def _print_trainable_parameters(model: Type[torch.nn.Module]): 
     logger.warning("This function will be removed in the future. Please use count_params_of_model")
     trainable_params = 0
     all_param = 0
@@ -19,12 +19,12 @@ def print_trainable_parameters(model: Type[torch.nn.Module]):
         if param.requires_grad:
             trainable_params += param.numel()
 
-    print_out(
+    _print_out(
         f"trainable params: {trainable_params} || all params: {all_param} || trainable%: {100 * trainable_params / all_param}"
     )
 
 
-def count_params_of_model(sequential, count_trainable_params= True, return_result= True): 
+def _count_params_of_model(sequential, count_trainable_params= True, return_result= True): 
     all_param= 0
     trainable_params= 0
 
@@ -39,6 +39,6 @@ def count_params_of_model(sequential, count_trainable_params= True, return_resul
             'trainable_params': trainable_params
         }
     else: 
-        print_out(
+        _print_out(
             f"trainable params: {trainable_params} || all params: {all_param} || trainable%: {100 * trainable_params / all_param}"
         )

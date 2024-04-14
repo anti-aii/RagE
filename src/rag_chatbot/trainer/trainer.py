@@ -37,10 +37,8 @@ from ..losses import (
     _criterion,
     rule_loss_task
 )
-
-from ..utils.augment_text import TextAugment
 from ..utils.process_bar import Progbar
-from ..utils.io_utils import print_out 
+from ..utils.io_utils import _print_out 
 
 class _Trainer: 
     def __init__(self, model: Type[ModelRag], argument_train: Type[ArgumentTrain], argument_dataset: Type[ArgumentDataset]):
@@ -172,7 +170,7 @@ class _Trainer:
                 if verbose: 
                     pb_i.add(1, values= [(self.metrics, step_loss / step_fr)])
                 else: 
-                    print_out(f'Step: [{index_grad[0]}/{self.total_steps}], Loss: {step_loss / step_fr}', line_break= True)
+                    _print_out(f'Step: [{index_grad[0]}/{self.total_steps}], Loss: {step_loss / step_fr}', line_break= True)
                     index_grad[0] += 1 
 
                 step_loss = 0 
@@ -194,35 +192,35 @@ class _Trainer:
         verbose: int= None, use_wandb= True, step_save: int= 1000, path_save_ckpt_step: str= "step_ckpt.pt", 
         path_save_ckpt_epoch: str= "best_ckpt.pt"):
         index_grad= [1] 
-        print_out('=' * 10 + ' Setup training' + '=' * 10, line_break= True)
+        _print_out('=' * 10 + ' Setup training' + '=' * 10, line_break= True)
         
         if not self.__status_setup_overall: 
             self._setup_overall()
 
         self._setup_data(data_train, data_eval)        
 
-        print_out('=' * 10 + ' Begin training ' + '=' * 10, line_break= True)
+        _print_out('=' * 10 + ' Begin training ' + '=' * 10, line_break= True)
         log_loss = 1e9
         for epoch in range(1, self.epochs + 1): 
             train_loss= self._train_on_epoch(index_grad, verbose, step_save, path_save_ckpt_step= path_save_ckpt_step, 
                                         use_wandb= use_wandb)
             # val_loss = evaluate()
 
-            print_out('-' * 59 + f'\nEnd of epoch {epoch} - loss: {train_loss}\n' + '-' * 59, line_break= True)
+            _print_out('-' * 59 + f'\nEnd of epoch {epoch} - loss: {train_loss}\n' + '-' * 59, line_break= True)
             
             if self.data_eval:
-                print_out('=' * 10 + ' EVALUATE ' + '=' * 10, line_break= True)
+                _print_out('=' * 10 + ' EVALUATE ' + '=' * 10, line_break= True)
                 val_loss= self._evaluate()
-                print_out(f'Evaluate loss: {val_loss}', line_break= True)
+                _print_out(f'Evaluate loss: {val_loss}', line_break= True)
 
                 if val_loss < log_loss: 
                     log_loss = val_loss
-                    print_out(f'Saving checkpoint have best {log_loss}', line_break= True)
+                    _print_out(f'Saving checkpoint have best {log_loss}', line_break= True)
                     self.model_lm.save(path= path_save_ckpt_epoch)
                         
             if train_loss < log_loss: # saving 
                 log_loss = train_loss
-                print_out(f'Saving checkpoint have best {log_loss}', line_break= True)
+                _print_out(f'Saving checkpoint have best {log_loss}', line_break= True)
                 self.model_lm.save(path= path_save_ckpt_epoch)
         
 

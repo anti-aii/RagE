@@ -10,9 +10,8 @@ from ..trainer.argument import ArgumentDataset, ArgumentTrain
 from ..utils import (
     save_model, 
     load_model, 
-    count_params_of_model
 )
-from ..utils.io_utils import print_out
+from ..utils.io_utils import _print_out
 from ..models import (
     BiEncoder, 
     CrossEncoder, 
@@ -23,6 +22,7 @@ from ..trainer.trainer import (
     _TrainerCrossEncoder, 
     _TrainerGenAns
 )
+from ..utils.print_trainable_params import _count_params_of_model
 
 
 class ModelRag(torch.nn.Module): 
@@ -61,15 +61,15 @@ class ModelRag(torch.nn.Module):
         load_model(self, path, multi_ckpt, key)
 
     def summary_params(self): 
-        count_params_of_model(self, count_trainable_params= False, 
+        _count_params_of_model(self, count_trainable_params= False, 
                               return_result= False)
 
     def summary(self): 
         table= PrettyTable(['Layer (type)', 'Param'])
         for name, weight in self.named_children(): 
-            table.add_row([f'{name} ({weight.__class__.__name__})', f'{count_params_of_model(weight):,}'])
+            table.add_row([f'{name} ({weight.__class__.__name__})', f'{_count_params_of_model(weight):,}'])
         
-        print_out(table)
+        _print_out(table)
     
     def compile(self, argument_train: Type[ArgumentTrain], argument_dataset: Type[ArgumentDataset]):
         if isinstance(self, BiEncoder): 

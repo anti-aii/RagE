@@ -5,6 +5,7 @@ import torch.nn as nn
 from transformers import AutoModel, AutoTokenizer
 from ..componets import ExtraRoberta, load_backbone, PoolingStrategy
 from ...utils import load_model, Progbar
+from ...utils.convert_data import _convert_data
 from ...models.model_rag import ModelRag 
 
 ### Bi-encoder 
@@ -147,7 +148,7 @@ class SentenceEmbedding:
         
         return torch.tensor(embedding)
     
-    def encode(self, text: List[str], batch_size= 64, max_length= 256, normalize_embedding= None, verbose= 1): 
+    def encode(self, text: List[str], batch_size= 64, max_length= 256, normalize_embedding= None, return_tensors= 'np', verbose= 1): 
         # PhoBERT max length 256, T5 max length 512
         embeddings= []
         self._preprocess()
@@ -155,13 +156,13 @@ class SentenceEmbedding:
             batch_size= len(text)
 
         batch_text= np.array_split(text, len(text)// batch_size)
-        pbi= Progbar(len(text), verbose= verbose, unit_name= "Raws")
+        pbi= Progbar(len(text), verbose= verbose, unit_name= "Samples")
 
         for batch in batch_text: 
             embeddings.append(self._encode_per_batch(batch.tolist(), max_length, normalize_embedding))
             pbi.add(len(batch))
 
-        return torch.concat(embeddings)
+        return _convert_data(torch.concat(embeddings).clone().detach(), return_tensors= return_tensors)
 
 
 
