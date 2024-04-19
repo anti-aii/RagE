@@ -71,8 +71,9 @@ def load_split_weight(path: str):
 
 def save_model(model: Type[torch.nn.Module], path: str, mode: str= "auto_detect", limit_size= 6,
                size_limit_file= 3, storage_units= 'gb', key:str= 'model_state_dict', metada: dict= None):
-    assert mode in ['trainable_weight', 'full_weight', 'multi_ckpt'
-                    'auto_detect']
+    assert mode in ['trainable_weight', 'full_weight', 'multi_ckpt', 'auto_detect']
+
+    # _ensure_dir(path, create_path= True)
     mode1, mode2= None, None
 
     if mode== 'auto_detect': 
@@ -80,7 +81,7 @@ def save_model(model: Type[torch.nn.Module], path: str, mode: str= "auto_detect"
         if (number_params['trainable_params'] / number_params['all_params']) < 0.5: 
             mode1= 'trainable_weight'
 
-        if _count_capacity_bit_weight(number_params['all_params'], storage_units= storage_units) > limit_size:
+        if _count_capacity_bit_weight(number_params['trainable_params'], storage_units= storage_units) > limit_size:
             mode2= 'multi_ckpt'
 
         if mode2: 
