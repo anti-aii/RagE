@@ -8,17 +8,20 @@ _dep= ["transformers>= 4.31.0",
        "peft >= 0.4.0", 
        "pandas >= 2.0.3",
        "scipy >= 1.11.1", 
-       "scikit-learn >= 1.3.0" 
+       "scikit-learn >= 1.3.0", 
+       "huggingface-hub >= 0.19.4"
 
 ]
 
 with open("README.md", 'r', encoding= 'utf-8') as f: 
     long_description= f.read() 
 
+description= """RagE (Rag Engine) - A tool supporting the construction and training of components of the Retrieval-Augmented-Generation (RAG) model. /
+It also facilitates the rapid development of Q&A systems and chatbots following the RAG model."""
 setup(
-    name='rag_chatbot',
+    name='rage',
     version= '1.0.0dev', 
-    description= 'A library that supports building the fastest and lightest chatbot or Q&A system for Vietnamese, using Retrieval Augmented Generation (RAG)', 
+    description= description, 
     long_description= long_description,
     author= 'Nguyễn Tiến Đạt', 
     author_email= 'nduc0231@gmail.com', 
@@ -27,5 +30,5 @@ setup(
     package_dir= {'': 'src'},
     package_data={"": ['**/*.yml']},
     install_requires= _dep,
-    python_requires= ">=3.10"
+    python_requires= ">=3.9"
 )
