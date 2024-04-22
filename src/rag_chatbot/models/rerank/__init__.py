@@ -1,1 +1,1 @@
-from .model import CrossEncoder, Ranker
+from .model import Reranker

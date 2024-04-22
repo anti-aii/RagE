@@ -1,5 +1,6 @@
 from typing import Optional, List, Type, Union
 import torch, torch.nn as nn 
+import numpy as np 
 from transformers import AutoModelForCausalLM, AutoModelForSeq2SeqLM, AutoTokenizer
 from peft import (
     LoraConfig, 
@@ -7,35 +8,77 @@ from peft import (
     TaskType
 )
 import loralib as lora
+
+from rag_chatbot.trainer.argument import ArgumentDataset, ArgumentTrain
 from ...utils import load_model
+from ...utils.process_bar import Progbar
+from ..componets import load_backbone
+from ..model_rag import ModelRag
+from ..model_infer import InferModel
+from ...trainer.trainer import _TrainerLLM
 
 ### Only support Bloom and T5
 
 class CastOutputToFloat(nn.Sequential):
   def forward(self, x): return super().forward(x).to(torch.float32)
 
-class GenAnsModel:
-    def __init__(self,
-        device: Type[torch.device], lora_r: Optional[int]= 32, 
-        lora_alpha: Optional[int]= 32, lora_dropout: Optional[int]= 0.05, 
-        target_modules: List[str]= None 
-    ): 
 
-        # setup lora 
+def load_model(auto_model, model_name, torch_dtype, quantization_cfg): 
+    return auto_model.from_pretrained(
+            model_name, 
+            torch_dtype= torch_dtype, 
+            device_map= 'auto' if quantization_cfg else 'cpu', 
+            quantization_config= quantization_cfg
+            )
+
+class LLM(ModelRag, InferModel):
+    def __init__(self, model_name: Type[str],  torch_dtype= torch.float16, type_backbone= "casual_lm", 
+        lora_r: Optional[int]= 32, lora_alpha: Optional[int]= 32, lora_dropout: Optional[int]= 0.05, 
+        target_modules: List[str]= None, merge_lora= False, gradient_ckpt: bool= True, use_cache: bool= False, 
+        quantization_config= None, torch_compile= False, backend_torch_compile: str= None, device= None
+    ): 
+        super().__init__()
+        assert type_backbone in ['casual_lm', 'seq2seq']
+
+        self.model_name= model_name
         self.lora_r= lora_r
         self.lora_alpha= lora_alpha
         self.lora_dropout= lora_dropout 
-        self.target_modules= target_modules 
-        # device 
+        self.target_modules= target_modules
+        self.gradient_ckpt= gradient_ckpt
+        self.use_cache= use_cache
+        self.type_backbone= type_backbone
+        self.quantization_config= quantization_config
+        self.torch_compile= torch_compile
+        self.backend_torch_compile= backend_torch_compile 
+        self.torch_dtype= torch_dtype
         self.device= device
 
-        # state 
-        self._state = None # state setup lora 
+        self.tokenizer= AutoTokenizer.from_pretrained(model_name, use_fast= True)
+        self.tokenizer.padding_side= 'left'
 
-    def _setup_gradient_ckpt(self, gradient_ckpt: Optional[bool]= True, use_cache: Optional[bool]= False):
+        self.model= load_backbone(model_name, type_backbone= type_backbone, torch_dtype= torch_dtype, 
+                                  quantization_config= quantization_config)
+        if type_backbone== 'casual_lm': 
+            self.TaskType= TaskType.CAUSAL_LM
+
+        elif type_backbone== 'seq2seq': 
+            self.TaskType= TaskType.SEQ_2_SEQ_LM
+
+        self._setup_lora_adapter()
+
+        self._set_dtype_device()
+
+        if merge_lora: 
+            self.model.merge_and_unload()
+
+        if torch_compile:
+            self._compile_with_torch()
+
+    def _setup_gradient_ckpt(self):
         # Only use for training 
-        self.model.use_cache= True if use_cache else False
-        if gradient_ckpt:
+        self.model.use_cache= True if self.use_cache else False
+        if self.gradient_ckpt:
             self.model.gradient_checkpointing_enable()
 
 
@@ -43,7 +86,7 @@ class GenAnsModel:
         config= LoraConfig(
             r= self.lora_r, 
             lora_alpha= self.lora_alpha, 
-            target_modules=  self.target_modules, # bloom -> ["query_key_value"], t5 -> ["q", "v"] 
+            target_modules=  self.target_modules,
             lora_dropout= self.lora_dropout, 
             bias= 'none', 
             task_type= self.TaskType
@@ -51,122 +94,80 @@ class GenAnsModel:
 
         self.model= get_peft_model(self.model, config)
 
-    def _prepare_training(self, gradient_ckpt: Optional[bool]= True, use_cache: Optional[bool]= False): 
+    def _prepare_training(self): 
         self.model.enable_input_require_grads()
-        self._setup_gradient_ckpt(gradient_ckpt, use_cache) 
+        self._setup_gradient_ckpt() 
 
         for param in self.model.parameters():
             param.requires_grad = False  # freeze the model - train adapters later
             if param.ndim == 1:
                 # cast the small parameters (e.g. layernorm) to fp32 for stability
                 param.data = param.data.to(torch.float32)
-        
-        self.model.lm_head= CastOutputToFloat(self.model.lm_head)
+        self.model.lm_head= CastOutputToFloat(self.model.lm_head)        
 
-    def  return_state(self):
-        return self._state
-    
-    def eval(self):
-        self.model.eval()
-    
-    def train(self):
-        self.model.train()
-    
-    # def _save_ckpt(self, ckpt_dir: Optional[str]= 'ckpt_lora.pt'): 
-    #     ## only save lora parameters 
-    #     torch.save({'lora': lora.lora_state_dict(self.model)}, ckpt_dir)
+    def compile(self, argument_train: type[ArgumentTrain], argument_dataset: type[ArgumentDataset]):
+        self._prepare_training()
+        self._trainer= _TrainerLLM(self, argument_train, argument_dataset)
 
-    def _load_ckpt(self, ckpt_dir: Optional[str]= 'ckpt_lora.pt'): 
-        load_model(self.model, filename= ckpt_dir, key= "lora")
-        
+    def _get_config_model_base(self):
+        return {
+            "model_type_base": self.model.__class__.__name__, 
+            "model_name": self.model_name, 
+            "type_backbone": self.type_backbone,
+            "gradient_checkpoint": self.gradient_ckpt, 
+            "use_cache": self.use_cache, 
+            "quantization_config": self.quantization_config
+        }
 
-    def prepare_inference(self, ckpt_dir: Type[str], merge_lora: Optional[bool]= True, 
-                          torch_compile: Optional[bool]= True, 
-                          backend: Type[str]= 'onnxrt'):
-        
-        self._setup_lora_adapter()
-        # load_lora 
-        self._load_ckpt(ckpt_dir)
-        if merge_lora: 
-            self.model.merge_and_unload()
-        if torch_compile: 
-            self.model= torch.compile(self.model, backend= backend)
-        
-        self.model.to(self.device)
-        
+    def _get_config_addition_weight(self):
+        return {
+            "lora_rank": self.lora_r, 
+            "lora_alpha": self.lora_alpha, 
+            "lora_target_modules": self.target_modules, 
+            "lora_dropout": self.lora_dropout,
+        }
+
+    def get_config(self):
+        self.modules_cfg= {
+            "model_base": self._get_config_model_base(),
+            "lora": self._get_config_addition_weight()
+            }
+        return super().get_config()
+    
+    def forward(self, **inputs): 
+        return self.model(**inputs)
+    
+    def _preprocess(self):
+        if self.training: 
+            self.eval()
+
+    def _preprocess_tokenize(self, text): 
+        inputs= self.tokenizer.batch_encode_plus(text, padding= 'longest', 
+                                                return_tensors= 'pt')
+        return inputs
+    
+    def _execute_per_batch(self, text: List[str], config_generate):
+        inputs= self._preprocess_tokenize(text)
+        output_sequences= self.model.generate(input_ids= inputs['input_ids'].to(self.device), 
+                        attention_mask= input['attention_mask'].to(self.device), **config_generate)
+
         torch.cuda.empty_cache()
         
-        self.model.eval() # eval mode 
-        self._state= 'infer'
-
-    def prepare_training(self, gradient_ckpt: Optional[bool]= True, use_cache: Optional[bool]= False):
-        self._prepare_training(gradient_ckpt, use_cache)
-        self._setup_lora_adapter()
-        self.model.to(self.device)
-        self.model.train()
-        self._state= 'finetune'
+        return self.tokenizer.batch_decode(output_sequences, skip_special_tokens= True)
     
-    def parameters(self): 
-        return self.model.parameters()
-
-    def gen(self, text, config_gen= None): 
-        if self._state != 'infer': 
-            raise ValueError('Must use prepare_inference method.')
+    def generate_text(self, text: List[str], batch_size= 4, config_generate= None, verbose= 1): 
         
-        encode= self.tokenizer.batch_encode_plus(text, padding= 'longest', 
-                                                return_tensors= 'pt')
-        output_sequences= self.model.generate(input_ids= encode['input_ids'].to(self.device), attention_mask= encode['attention_mask'].to(self.device), 
-                                        **config_gen
-                                        )
-        torch.cuda.empty_cache() ## delete cache batch casted 
-        return self.tokenizer.batch_decode(output_sequences, skip_special_tokens= True)[0] #.split('\n')[-1]     
-
-
-    
+        text_output= []
+        self._preprocess()
+        if batch_size > len(text): 
+            batch_size= len(text)
         
-
-### class GenAnsModelCausalLM  (Only support BLOOM)
-class GenAnsModelCasualLM(GenAnsModel): 
-    def __init__(self,
-        model_name: Type[str],  device: Type[torch.device],
-        torch_dtype= torch.float16, lora_r: Optional[int]= 32, 
-        lora_alpha: Optional[int]= 32,  lora_dropout: Optional[int]= 0.05, 
-        target_modules= ["query_key_value"], quantization_config= None,
-    ): 
-    
-        super(GenAnsModelCasualLM, self).__init__(device, lora_r, lora_alpha, 
-                                                  lora_dropout, target_modules)
-        # initial pretrained
-        self.model= AutoModelForCausalLM.from_pretrained(
-            model_name, 
-            torch_dtype= torch_dtype, 
-            device_map= 'auto' if quantization_config else 'cpu', 
-            quantization_config= quantization_config
-        )
-        self.tokenizer= AutoTokenizer.from_pretrained(model_name, use_fast= True)
-        self.tokenizer.padding_side= 'left'
-        self.TaskType= TaskType.CAUSAL_LM
-
-
-### class GenAnsModelSeq2SeqLM  Support T5-based models 
-class GenAnsModelSeq2SeqLM(GenAnsModel):
-    def __init__(self,
-        model_name: Type[str],  device: Type[torch.device],
-        torch_dtype= torch.bfloat16, lora_r: Optional[int]= 32,  # bfloat16 for traning, float16 for inference 
-        lora_alpha: Optional[int]= 32,  lora_dropout: Optional[int]= 0.05, 
-        target_modules= ["q", "v"], quantization_config= None,
-    ): 
-    
-        super(GenAnsModelCasualLM, self).__init__(device, lora_r, lora_alpha, 
-                                                  lora_dropout, target_modules)
-        # initial pretrained
-        self.model= AutoModelForSeq2SeqLM.from_pretrained(
-            model_name, 
-            torch_dtype= torch_dtype, # should use bf16 for training or f16 while inference 
-            device_map= 'auto' if quantization_config else 'cpu',  # default  
-            quantization_config= quantization_config
-        )
-        self.tokenizer= AutoTokenizer.from_pretrained(model_name, use_fast= True)
-        self.TaskType= TaskType.SEQ_2_SEQ_LM
-
+        batch_text= np.array_split(text, len(text)// batch_size)
+        pbi= Progbar(len(text), verbose= verbose, unit_name= "Samples")
         
+        for batch in batch_text: 
+            text_output.extend(self._execute_per_batch(text, config_generate))
+            pbi.add(len(batch))
+        
+        return text_output
+

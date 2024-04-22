@@ -1,1 +1,1 @@
-from .model import GenAnsModelCasualLM, GenAnsModelSeq2SeqLM, GenAnsModel 
+from .model import LLM

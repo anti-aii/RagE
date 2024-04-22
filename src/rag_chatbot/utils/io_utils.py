@@ -9,6 +9,21 @@ def _ensure_dir(dir, create_path= True):
         return False 
     return True 
 
+def _create_new_path(org_path, new_folder_name): 
+    dir_name, file_name= os.path.split(org_path)
+
+    if file_name: 
+        new_dir= os.path.join(dir_name, new_folder_name)
+        new_path= os.path.join(new_dir, file_name)
+
+        _ensure_dir(new_dir, create_path= True)
+
+        return new_path 
+    else:
+        new_path= os.path.join(org_path, new_folder_name)
+        _ensure_dir(new_path)
+        return new_path
+
 
 def _print_out(message, line_break= False):
     if line_break: 

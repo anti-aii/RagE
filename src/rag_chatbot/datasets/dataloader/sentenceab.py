@@ -59,11 +59,9 @@ class SentABDL(Dataset):
     
 class SentABCollate: 
     def __init__(self, tokenizer: Union[str, PreTrainedTokenizer], max_length= 256, 
-                    mode: str= 'cross_encoder', type_backbone= 'bert', task= None, 
-                    augment_func: TextAugment= None):
+                    mode: str= 'cross_encoder', task= None, augment_func: TextAugment= None):
         
         assert isinstance(augment_func, TextAugment) or augment_func is None
-        assert type_backbone in ['bert', 't5'] # T5 or mt5 are currently not supported for unsupervised training
         assert mode in ['bi_encoder', 'cross_encoder']
         assert task in [
             EMBEDDING_RANKER_NUMERICAL,  # cosine_sim, sigmoid, categorical 
@@ -77,13 +75,10 @@ class SentABCollate:
         elif isinstance(tokenizer, PreTrainedTokenizer): 
             self.tokenizer= tokenizer 
             
-        if type_backbone == 't5': 
-            logger.warning("T5 or mt5 are currently not supported for unsupervised training")
         if mode == 'cross_encoder' and task != EMBEDDING_RANKER_NUMERICAL: 
             raise ValueError('To use mode= "cross_encoder", you must use task= EMBEDDING_RANKER_NUMERICAL')
         
         self.mode= mode
-        self.type_backbone= type_backbone 
         self.max_length= max_length
         self.augument_func= augment_func
         self.task= task 

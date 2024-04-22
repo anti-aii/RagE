@@ -69,7 +69,7 @@ def load_split_weight(path: str):
     return params
     
 
-def save_model(model: Type[torch.nn.Module], path: str, mode: str= "auto_detect", limit_size= 6,
+def save_model(model: Type[torch.nn.Module], path: str, mode: str= "trainable_params", limit_size= 6,
                size_limit_file= 3, storage_units= 'gb', key:str= 'model_state_dict', metada: dict= None):
     assert mode in ['trainable_weight', 'full_weight', 'multi_ckpt', 'auto_detect']
 
@@ -112,7 +112,7 @@ def save_model(model: Type[torch.nn.Module], path: str, mode: str= "auto_detect"
                     'metadata': metada}, path)
     
 
-def load_model(model: Type[torch.nn.Module], path: str, multi_ckpt= False, key: str= 'model_state_dict'): 
+def load_model(model: Type[torch.nn.Module], path: str, multi_ckpt= False, key: str= 'model_state_dict',): 
     if multi_ckpt:
         model.load_state_dict(load_split_weight(path= path))
         return ModuleNotFoundError

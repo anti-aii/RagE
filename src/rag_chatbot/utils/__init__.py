@@ -1,4 +1,4 @@
-from .augment_text import NoiseMask 
+from .augment_text import NoiseMask, TextAugment
 from .preprocess_text import TextFormat
 from .responses import ResponsewithRule
 from .save_and_load import save_model, load_model 

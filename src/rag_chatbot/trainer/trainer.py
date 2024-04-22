@@ -9,7 +9,7 @@ from torch.cuda.amp import autocast, GradScaler
 import wandb 
 
 from .argument import ArgumentDataset, ArgumentTrain
-from ..models.model_rag import ModelRag
+
 
 from ..datasets import (
     GenAnsCollate, 
@@ -30,10 +30,7 @@ from ..losses import (
     CONTRASTIVE_LOSS,
     TRIPLET_LOSS, 
     IN_BATCH_NEGATIVES_LOSS,
-    EMBEDDING_CONTRASTIVE,
-    EMBEDDING_IN_BATCH_NEGATIVES,
     EMBEDDING_RANKER_NUMERICAL,
-    EMBEDDING_TRIPLET,
     _criterion,
     rule_loss_task
 )
@@ -41,7 +38,7 @@ from ..utils.process_bar import Progbar
 from ..utils.io_utils import _print_out 
 
 class _Trainer: 
-    def __init__(self, model: Type[ModelRag], argument_train: Type[ArgumentTrain], argument_dataset: Type[ArgumentDataset]):
+    def __init__(self, model, argument_train: Type[ArgumentTrain], argument_dataset: Type[ArgumentDataset]):
 
         # base 
         self.model_lm= model 
@@ -78,8 +75,6 @@ class _Trainer:
         self.weight_decay= self.arg_train['weight_decay']
         self.warmup_steps= self.arg_train['warmup_steps']
         self.epochs= self.arg_train['epochs'] 
-        self.torch_compile= self.arg_train['torch_compile']
-        self.backend_torch_compile= self.arg_train['backend_torch_compile'] 
         self.data_parallel= self.arg_train['data_parallel']
         
 
@@ -224,8 +219,8 @@ class _Trainer:
                 self.model_lm.save(path= path_save_ckpt_epoch)
         
 
-class _TrainerGenAns(_Trainer):
-    def __init__(self, model: Type[ModelRag], argument_train: Type[ArgumentTrain], argument_dataset: Type[ArgumentDataset]):
+class _TrainerLLM(_Trainer):
+    def __init__(self, model, argument_train: Type[ArgumentTrain], argument_dataset: Type[ArgumentDataset]):
         super().__init__(model, argument_train= argument_train, argument_dataset= argument_dataset)
         
         self.collate= GenAnsCollate(self.tokenizer, self.max_length)
@@ -260,7 +255,7 @@ class _TrainerGenAns(_Trainer):
         
 
 class _TrainerBiEncoder(_Trainer):  ## support 
-    def __init__(self, model: Type[ModelRag], argument_train: Type[ArgumentTrain], argument_dataset: Type[ArgumentDataset]):
+    def __init__(self, model, argument_train: Type[ArgumentTrain], argument_dataset: Type[ArgumentDataset]):
         
         super().__init__(model, argument_train= argument_train, argument_dataset= argument_dataset)
         
@@ -282,8 +277,8 @@ class _TrainerBiEncoder(_Trainer):  ## support
             
             self.criterion= self.loss_function
         
-        self.collate= SentABCollate(self.tokenizer, mode= "bi_encoder", type_backbone= self.model_lm.type_backbone, 
-                                    max_length= self.max_length, task= self.task, augment_func= self.augment_data_function)
+        self.collate= SentABCollate(self.tokenizer, mode= "bi_encoder",
+                    max_length= self.max_length, task= self.task, augment_func= self.augment_data_function)
     
     def _setup_dataset(self):
         train_dataset= SentABDL(self.data_train, task= self.task)
@@ -368,7 +363,7 @@ class _TrainerBiEncoder(_Trainer):  ## support
     
 
 class _TrainerCrossEncoder(_Trainer):
-    def __init__(self, model: Type[ModelRag], argument_train: Type[ArgumentTrain], argument_dataset: Type[ArgumentDataset]):
+    def __init__(self, model, argument_train: Type[ArgumentTrain], argument_dataset: Type[ArgumentDataset]):
         
         super().__init__(model, argument_train= argument_train, argument_dataset= argument_dataset)
         
@@ -387,8 +382,8 @@ class _TrainerCrossEncoder(_Trainer):
             
             self.criterion= self.loss_function
     
-        self.collate= SentABCollate(self.tokenizer, mode= "cross_encoder", type_backbone= self.model_lm.type_backbone, 
-                                    max_length= self.max_length, task= self.task, augment_func= self.augment_data_function)
+        self.collate= SentABCollate(self.tokenizer, mode= "cross_encoder", 
+                    max_length= self.max_length, task= self.task, augment_func= self.augment_data_function)
         
     def _setup_dataset(self):
         train_dataset= SentABDL(self.data_train, task= self.task)
@@ -422,4 +417,4 @@ class _TrainerCrossEncoder(_Trainer):
                     wandb.log({"Eval loss": loss.item()})
                 total_count += 1 
         
-        return total_loss / total_count 
+        return total_loss / total_count       
