@@ -1,7 +1,7 @@
 import json  
 import os 
 os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID" 
-os.environ["CUDA_VISIBLE_DEVICES"]="0,1,2,3"
+os.environ["CUDA_VISIBLE_DEVICES"]="0,1,2,3,4"
 
 import torch 
 import wandb
@@ -10,7 +10,8 @@ from transformers.optimization import get_cosine_schedule_with_warmup
 from bitsandbytes.optim import PagedAdamW8bit
 
 
-from rage import Reranker, ArgumentDataset, ArgumentTrain
+from rage import SentenceEmbedding
+from rage import ArgumentDataset, ArgumentTrain
 
 from rage.losses import (
     BINARY_CROSS_ENTROPY_LOSS,
@@ -47,11 +48,12 @@ if __name__ == "__main__":
     device = torch.device(config['device']) 
 
     wandb.init(
-        project= "cross_encoder-training",
+        project= "sup-embedding-model-training",
         name= config['name'], 
         config= {
             'model': config_model['model_name'], 
             'required_grad': config_model['required_grad'],
+            "concat_embeddings": config_model['concat_embeddings'],
             "dropout": config_model['dropout'], 
             "using_hidden_states": config_model['using_hidden_states'], 
             "pooling": config_model['pooling'], 
@@ -65,10 +67,11 @@ if __name__ == "__main__":
         }
     )
 
-    model= Reranker(
+    model= SentenceEmbedding(
             model_name= config_model['model_name'], 
             type_backbone= config_model['type_backbone'],
             aggregation_hidden_states= config_model['using_hidden_states'], 
+            concat_embeddings= config_model['concat_embeddings'],
             required_grad_base_model= config_model['required_grad'], 
             dropout= config_model['dropout'], 
             strategy_pooling= config_model['pooling'],
@@ -77,6 +80,7 @@ if __name__ == "__main__":
 
     model.to(device)
     
+
     args_train= ArgumentTrain(
                 loss_function= loss[config['loss']],
                 gradient_accumlation_steps= config['gradient_accumlation_steps'], 
@@ -105,7 +109,7 @@ if __name__ == "__main__":
 
     model.compile(args_train, ars_dataset)
 
-    model.fit(data_train= config['path_train'], 
+    model.fit(data_train= load_dataset(config['path_train'], split= "train"), 
             data_eval= config['path_eval'], 
             path_save_ckpt_step= config['path_ckpt_step'], 
             path_save_ckpt_epoch= config['path_ckpt_epoch'], 
