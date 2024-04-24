@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn 
 from transformers import  AutoTokenizer
 
-from rag_chatbot.trainer.argument import ArgumentDataset, ArgumentTrain
+from ...trainer.argument import ArgumentDataset, ArgumentTrain
 from ...trainer.trainer import _TrainerBiEncoder
 from ..componets import ExtraRoberta, load_backbone, PoolingStrategy
 from ...utils import Progbar

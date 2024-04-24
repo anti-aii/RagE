@@ -14,7 +14,6 @@ from huggingface_hub.utils import (
     EntryNotFoundError, 
     HfHubHTTPError,
     SoftTemporaryDirectory,
-    is_torch_available,
     validate_hf_hub_args,
 )
 from huggingface_hub.utils._deprecation import _deprecate_arguments
@@ -93,9 +92,9 @@ class ModelRag(torch.nn.Module):
             self, 
             save_directory: str, 
             *, 
-            config: dict, 
+            config: dict= None, 
             repo_id= None, 
-            push_to_hub: False,
+            push_to_hub: bool= False,
             **push_to_hub_kwargs): 
         
         _ensure_dir(save_directory, create_path= True)
@@ -116,6 +115,8 @@ class ModelRag(torch.nn.Module):
                 repo_id= os.path.split(save_directory)[1]
 
             return self.push_to_hub(repo_id= repo_id, **kwargs)
+        
+        return None
     
     @classmethod
     @validate_hf_hub_args

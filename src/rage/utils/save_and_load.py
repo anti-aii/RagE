@@ -69,8 +69,8 @@ def load_split_weight(path: str):
     return params
     
 
-def save_model(model: Type[torch.nn.Module], path: str, mode: str= "trainable_params", limit_size= 6,
-               size_limit_file= 3, storage_units= 'gb', key:str= 'model_state_dict', metada: dict= None):
+def save_model(model: Type[torch.nn.Module], path: str, mode: str= "trainable_weight", limit_size= 6,
+               size_limit_file= 3, storage_units= 'gb', key:str= 'model_state_dict', metadata: dict= None):
     assert mode in ['trainable_weight', 'full_weight', 'multi_ckpt', 'auto_detect']
 
     # _ensure_dir(path, create_path= True)
@@ -109,7 +109,7 @@ def save_model(model: Type[torch.nn.Module], path: str, mode: str= "trainable_pa
         torch.save(weight, path)
     else: 
         torch.save({key: weight,
-                    'metadata': metada}, path)
+                    'metadata': metadata}, path)
     
 
 def load_model(model: Type[torch.nn.Module], path: str, multi_ckpt= False, key: str= 'model_state_dict',): 

@@ -11,13 +11,16 @@ from ..datareader import DataReader
 class GenAnsDL(Dataset): 
   
   def __init__(self, path_data_or_dataframe: Union[pd.DataFrame, str, datasets.Dataset]):
-    self.df= DataReader(path_data_or_dataframe).read()
+    self.data= DataReader(path_data_or_dataframe).read()
 
   def __len__(self):
-    return len(self.df)
+    return len(self.data)
   
   def __getitem__(self, index): 
-    x = self.df.iloc[index, 0] + "</s>"
+    if isinstance(self.data, datasets.Dataset): 
+      return self.data[index].values()
+    else: 
+      x = self.df.iloc[index, 0].tolist() 
     return x 
 
 class GenAnsCollate: 
@@ -32,6 +35,8 @@ class GenAnsCollate:
     self.tokenizer.padding_side= 'left'
   
   def __call__(self, data): 
+    data= list(map(lambda x: x + self.tokenizer.eos_token, data))
+
     x = self.tokenizer.batch_encode_plus(data, 
                                    truncation= True, 
                                    padding= 'longest',

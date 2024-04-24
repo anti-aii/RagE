@@ -36,6 +36,7 @@ from ..losses import (
 )
 from ..utils.process_bar import Progbar
 from ..utils.io_utils import _print_out 
+from ..utils import save_model
 
 class _Trainer: 
     def __init__(self, model, argument_train: Type[ArgumentTrain], argument_dataset: Type[ArgumentDataset]):
@@ -54,33 +55,37 @@ class _Trainer:
         pass
 
     def _setup_config_argument_datasets(self): 
-        self.max_length= self.arg_data['max_length']
-        self.tokenizer= self.arg_data['tokenizer']
-        self.batch_size= self.arg_data['batch_size_per_gpu'] * torch.cuda.device_count()
-        self.shuffle= self.arg_data['shuffle']
-        self.num_workers= self.arg_data['num_workers']
-        self.pin_memory= self.arg_data['pin_memory']
-        self.prefetch_factor= self.arg_data['prefetch_factor']
-        self.persistent_workers= self.arg_data['persistent_workers']
-        self.augment_data_function= self.arg_data['augment_data_function']
+        self.max_length= self.arg_data.max_length
+        self.tokenizer= self.arg_data.tokenizer
+        self.batch_size= self.arg_data.batch_size_per_gpu * torch.cuda.device_count()
+        self.shuffle= self.arg_data.shuffle
+        self.num_workers= self.arg_data.num_workers
+        self.pin_memory= self.arg_data.pin_memory
+        self.prefetch_factor= self.arg_data.prefetch_factor
+        self.persistent_workers= self.arg_data.persistent_workers
+        self.augment_data_function= self.arg_data.augment_data_function
 
     def _setup_config_argument_train(self): 
-        self.loss_function= self.arg_train['loss_function']
-        self.grad_accum= self.arg_train['gradient_accumlation_steps ']
-        self.optimizer= self.arg_train['optimizer']
-        self.metrics= self.arg_train['metrics']
-        self.scheduler= self.arg_train['scheduler']
-        self.lr= self.arg_train['learning_rate']
-        self.eps= self.arg_train['eps']
-        self.weight_decay= self.arg_train['weight_decay']
-        self.warmup_steps= self.arg_train['warmup_steps']
-        self.epochs= self.arg_train['epochs'] 
-        self.data_parallel= self.arg_train['data_parallel']
-        
+        self.loss_function= self.arg_train.loss_function
+        self.grad_accum= self.arg_train.grad_accum
+        self.optimizer= self.arg_train.optimizer
+        self.metrics= self.arg_train.metrics
+        self.scheduler= self.arg_train.scheduler
+        self.lr= self.arg_train.lr
+        self.eps= self.arg_train.eps
+        self.weight_decay= self.arg_train.weight_decay
+        self.warmup_steps= self.arg_train.warmup_steps
+        self.epochs= self.arg_train.epochs
+        self.data_parallel= self.arg_train.data_parallel
 
+    def _setup_addtion_config(self):
+
+        raise NotImplementedError
+        
     def _setup_config(self): 
         self._setup_config_argument_datasets()
         self._setup_config_argument_train()
+        self._setup_addtion_config()
 
     def _setup_dataloader(self): 
         train_dataset, eval_dataset= self._setup_dataset()
@@ -108,7 +113,7 @@ class _Trainer:
     def _setup_dataparallel(self): 
         if self.data_parallel: 
             self.model_lm= nn.DataParallel(self.model_lm)
-        self.device= torch.cuda.device('cuda' if torch.cuda.is_available() else 'cpu')
+        self.device= torch.device('cuda' if torch.cuda.is_available() else 'cpu')
  
     def _setup_data(self, data_train, data_eval): 
         self.data_train= data_train 
@@ -172,7 +177,7 @@ class _Trainer:
                 step_fr = 0
 
             if (idx + 1) % step_save ==0:
-                self._save_ckpt(path= path_save_ckpt_step, metadata= {
+                save_model(self.model_lm, path= path_save_ckpt_step, metadata= {
                     'step': idx + 1, 
                     'optimizer_state_dict': self.optimizer.state_dict(),
                     'scheduler': self.scheduler.state_dict(),   
@@ -197,6 +202,8 @@ class _Trainer:
         _print_out('=' * 10 + ' Begin training ' + '=' * 10, line_break= True)
         log_loss = 1e9
         for epoch in range(1, self.epochs + 1): 
+            print("\nEpoch {}/{}".format(epoch, self.epochs))
+
             train_loss= self._train_on_epoch(index_grad, verbose, step_save, path_save_ckpt_step= path_save_ckpt_step, 
                                         use_wandb= use_wandb)
             # val_loss = evaluate()
@@ -211,18 +218,19 @@ class _Trainer:
                 if val_loss < log_loss: 
                     log_loss = val_loss
                     _print_out(f'Saving checkpoint have best {log_loss}', line_break= True)
-                    self.model_lm.save(path= path_save_ckpt_epoch)
+                    save_model(self.model_lm, path= path_save_ckpt_epoch)
                         
             if train_loss < log_loss: # saving 
                 log_loss = train_loss
                 _print_out(f'Saving checkpoint have best {log_loss}', line_break= True)
-                self.model_lm.save(path= path_save_ckpt_epoch)
+                save_model(self.model_lm, path= path_save_ckpt_epoch)
         
 
 class _TrainerLLM(_Trainer):
     def __init__(self, model, argument_train: Type[ArgumentTrain], argument_dataset: Type[ArgumentDataset]):
         super().__init__(model, argument_train= argument_train, argument_dataset= argument_dataset)
         
+    def _setup_addtion_config(self):
         self.collate= GenAnsCollate(self.tokenizer, self.max_length)
 
     def _setup_dataset(self): 
@@ -259,6 +267,7 @@ class _TrainerBiEncoder(_Trainer):  ## support
         
         super().__init__(model, argument_train= argument_train, argument_dataset= argument_dataset)
         
+    def _setup_addtion_config(self):
         self.task= rule_loss_task(self.loss_function)
         
         if isinstance(self.loss_function, str): 
@@ -361,12 +370,13 @@ class _TrainerBiEncoder(_Trainer):  ## support
         
         return total_loss / total_count 
     
-
+    
 class _TrainerCrossEncoder(_Trainer):
     def __init__(self, model, argument_train: Type[ArgumentTrain], argument_dataset: Type[ArgumentDataset]):
         
         super().__init__(model, argument_train= argument_train, argument_dataset= argument_dataset)
         
+    def _setup_addtion_config(self):
         self.task= rule_loss_task(self.loss_function)
 
         if isinstance(self.loss_function, str): 

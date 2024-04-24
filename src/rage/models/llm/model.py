@@ -9,7 +9,7 @@ from peft import (
 )
 import loralib as lora
 
-from rag_chatbot.trainer.argument import ArgumentDataset, ArgumentTrain
+from ...trainer.argument import ArgumentDataset, ArgumentTrain
 from ...utils import load_model
 from ...utils.process_bar import Progbar
 from ..componets import load_backbone
