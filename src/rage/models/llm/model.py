@@ -163,7 +163,7 @@ class LLM(ModelRag, InferModel):
             batch_size= len(text)
         
         batch_text= np.array_split(text, len(text)// batch_size)
-        pbi= Progbar(len(text), verbose= verbose, unit_name= "Samples")
+        pbi= Progbar(len(text), verbose= verbose, unit_name= "Sample")
         
         for batch in batch_text: 
             text_output.extend(self._execute_per_batch(text, config_generate))

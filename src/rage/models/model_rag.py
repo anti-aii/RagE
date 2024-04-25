@@ -32,15 +32,26 @@ import logging
 logger= logging.Logger(__name__)
 
 class ModelRag(torch.nn.Module): 
-    ### currently support for BiEncoder, CrossEncoder
+
+    @property
+    def device(self):
+        if self.__device: 
+            return self.__device 
+        else: 
+            return next(self.parameters()).device
+    
+    @device.setter
+    def device(self, value): 
+        self.__device= value
+
     @abstractmethod
     def _get_config_model_base(self):
         # return architecture base model, 
-        pass 
+        raise NotImplementedError
     
     @abstractmethod
     def _get_config_addition_weight(self): 
-        pass 
+        raise NotImplementedError
     
     # @abstractmethod
     def get_config(self):
@@ -248,7 +259,7 @@ class ModelRag(torch.nn.Module):
     
     @abstractmethod
     def compile(self, argument_train: Type[ArgumentTrain], argument_dataset: Type[ArgumentDataset]):
-        pass
+        raise NotImplementedError
 
     def fit(
         self, 
@@ -274,19 +285,20 @@ class ModelRag(torch.nn.Module):
 
     def evaluation(self, data):
         # currently not support 
+        # raise NotImplementedError
         pass 
     
     @abstractmethod
     def _preprocess(self):
-        pass 
+        raise NotImplementedError 
 
     @abstractmethod
     def _preprocess_tokenize(self): 
-        pass 
+        raise NotImplementedError
     
     @abstractmethod
     def _execute_per_batch(self):
-        pass
+        raise NotImplementedError
 
     def __str__(self) -> str:
         return self.__repr__()

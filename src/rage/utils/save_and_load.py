@@ -71,6 +71,27 @@ def load_split_weight(path: str):
 
 def save_model(model: Type[torch.nn.Module], path: str, mode: str= "trainable_weight", limit_size= 6,
                size_limit_file= 3, storage_units= 'gb', key:str= 'model_state_dict', metadata: dict= None):
+    
+    """
+    Save the model parameters or weights to a file.
+
+    Args:
+        model (Type[torch.nn.Module]): The PyTorch model to save.
+        path (str): The file path where the model will be saved.
+        mode (str, optional): The mode for saving the model. Defaults to "trainable_weight".
+            Options are: "trainable_weight", "full_weight", "multi_ckpt", "auto_detect".
+        limit_size (int, optional): The limit size for saving weights in gigabytes (GB). Defaults to 6.
+        size_limit_file (int, optional): The size limit for each split file when saving weights in multi-ckpt mode. Defaults to 3.
+        storage_units (str, optional): The storage units to use for size limits. Defaults to 'gb'.
+        key (str, optional): The key to use when saving the model state dictionary. Defaults to 'model_state_dict'.
+        metadata (dict, optional): Additional metadata to save along with the model. Defaults to None.
+
+    Raises:
+        AssertionError: If mode is not one of ['trainable_weight', 'full_weight', 'multi_ckpt', 'auto_detect'].
+
+    Returns:
+        None: If mode is 'multi_ckpt', otherwise returns None.
+    """
     assert mode in ['trainable_weight', 'full_weight', 'multi_ckpt', 'auto_detect']
 
     # _ensure_dir(path, create_path= True)
@@ -112,10 +133,23 @@ def save_model(model: Type[torch.nn.Module], path: str, mode: str= "trainable_we
                     'metadata': metadata}, path)
     
 
-def load_model(model: Type[torch.nn.Module], path: str, multi_ckpt= False, key: str= 'model_state_dict',): 
+def load_model(model: Type[torch.nn.Module], path: str, multi_ckpt= False, key: str= 'model_state_dict',):
+    """
+    Load weights of a PyTorch model from a specified path.
+
+    Args:
+        model (Type[torch.nn.Module]): The PyTorch model to load weights into.
+        path (str): The path to the checkpoint file.
+        multi_ckpt (bool, optional): Flag indicating whether the checkpoint file contains multiple models. 
+            Defaults to False.
+        key (str, optional): The key in the checkpoint file under which the model's state dictionary is stored.
+            Defaults to 'model_state_dict'.
+
+    Returns:
+        None: The function does not return anything, it directly loads the model weights.
+    """ 
     if multi_ckpt:
         model.load_state_dict(load_split_weight(path= path))
-        return ModuleNotFoundError
 
     if key: 
         ckpt= torch.load(path, map_location= "cpu")[key]

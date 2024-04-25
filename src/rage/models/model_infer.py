@@ -4,12 +4,12 @@ class InferModel(ABC):
     
     @abstractmethod
     def _preprocess(self):
-        pass 
+        raise NotImplementedError
 
     @abstractmethod
     def _preprocess_tokenize(self): 
-        pass 
+        raise NotImplementedError
     
     @abstractmethod
     def _execute_per_batch(self):
-        pass
+        raise NotImplementedError

@@ -11,10 +11,10 @@ from ...utils import Progbar
 from ...utils.convert_data import _convert_data
 from ..model_rag import ModelRag
 from ..model_infer import InferModel
-from huggingface_hub import PyTorchModelHubMixin
 
 
-class SentenceEmbedding(ModelRag, InferModel, PyTorchModelHubMixin):
+
+class SentenceEmbedding(ModelRag, InferModel):
     def __init__(
         self, 
         model_name= 'vinai/phobert-base-v2', 
@@ -31,7 +31,7 @@ class SentenceEmbedding(ModelRag, InferModel, PyTorchModelHubMixin):
         backend_torch_compile: str= None
     ):
 
-        super().__init__()
+        super(SentenceEmbedding, self).__init__()
 
         self.model_name= model_name
         self.aggregation_hidden_states= aggregation_hidden_states
@@ -178,19 +178,32 @@ class SentenceEmbedding(ModelRag, InferModel, PyTorchModelHubMixin):
         with torch.no_grad(): 
             embedding= self.get_embedding(dict( (i, j.to(self.device)) for i,j in inputs.items()))
         if normalize_embedding: 
-            return self._normalize_embedding(torch.tensor(embedding), norm= normalize_embedding)
+            return self._normalize_embedding(embedding, norm= normalize_embedding)
         
-        return embedding.clone().detach()
+        return embedding
     
     def encode(self, text: List[str], batch_size= 64, max_length= 256, normalize_embedding= None, return_tensors= 'np', verbose= 1): 
-        # PhoBERT max length 256, T5 max length 512
+        """
+        Encodes the input text.
+
+        Args:
+            text (List[str]): List of input texts.
+            batch_size (int): Batch size for encoding. Default is 64.
+            max_length (int): Maximum length of input. Default is 256.
+            normalize_embedding: Normalization method. Default is None.
+            return_tensors (str): Type of output tensors. Should be one of "pt" (PyTorch tensors) or "np" (NumPy arrays). Default is 'np'.
+            verbose (int): Verbosity level. Default is 1.
+
+        Returns:
+            np.ndarray or torch.Tensor: Encoded embeddings.
+        """
         embeddings= []
         self._preprocess()
         if batch_size > len(text): 
             batch_size= len(text)
 
         batch_text= np.array_split(text, len(text)// batch_size)
-        pbi= Progbar(len(text), verbose= verbose, unit_name= "Samples")
+        pbi= Progbar(len(text), verbose= verbose, unit_name= "Sample")
 
         for batch in batch_text: 
             embeddings.append(self._execute_per_batch(batch.tolist(), max_length, normalize_embedding))

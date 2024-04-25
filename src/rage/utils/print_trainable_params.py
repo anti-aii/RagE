@@ -24,7 +24,30 @@ def _print_trainable_parameters(model: Type[torch.nn.Module]):
     )
 
 
-def _count_params_of_model(sequential, count_trainable_params= True, return_result= True): 
+def _count_params_of_model(sequential, count_trainable_params= True, return_result= True):
+    """
+    Count the total number of parameters in a PyTorch model.
+
+    Parameters:
+    - sequential (torch.nn.Sequential): The sequential model.
+    - count_trainable_params (bool, optional): If True, count only trainable parameters. Default is True.
+    - return_result (bool, optional): If True, return the result as a dictionary containing all parameters and trainable parameters.
+                                      If False, print the result. Default is True.
+
+    Returns:
+    If return_result is True:
+        dict: A dictionary containing the count of all parameters and trainable parameters.
+            {
+                'all_params': int,          # Total number of parameters in the model
+                'trainable_params': int     # Total number of trainable parameters in the model
+            }
+    If return_result is False: (prints the result instead of returning)
+        None
+
+    Note:
+    - The count includes both trainable and non-trainable parameters.
+    - If return_result is False, the function prints the count of trainable parameters, total parameters, and the percentage of trainable parameters.
+    """ 
     all_param= 0
     trainable_params= 0
 

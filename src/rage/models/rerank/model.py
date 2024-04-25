@@ -21,7 +21,7 @@ class Reranker(ModelRag, InferModel):
         model_name= 'vinai/phobert-base-v2', 
         type_backbone= 'mlm',
         aggregation_hidden_states= True, 
-        required_grad_base_model= False, 
+        required_grad_base_model= True, 
         strategy_pooling= "attention_context", 
         dropout= 0.1, 
         num_label= 1,
@@ -33,7 +33,8 @@ class Reranker(ModelRag, InferModel):
     ):
         
         super().__init__()
-        
+    
+        self.model_name= model_name
         self.aggregation_hidden_states= aggregation_hidden_states
         self.strategy_pooling= strategy_pooling
         self.type_backbone= type_backbone
@@ -164,7 +165,7 @@ class Reranker(ModelRag, InferModel):
             batch_size= len(text)
 
         batch_text= np.array_split(text, len(text)// batch_size)
-        pbi= Progbar(len(text), verbose= verbose, unit_name= "Samples")
+        pbi= Progbar(len(text), verbose= verbose, unit_name= "Sample")
 
         for batch in batch_text: 
             results.append(self._execute_per_batch(batch.tolist(), max_length))
