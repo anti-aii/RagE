@@ -111,6 +111,7 @@ if __name__ == "__main__":
             data_eval= config['path_eval'], 
             path_save_ckpt_step= config['path_ckpt_step'], 
             path_save_ckpt_epoch= config['path_ckpt_epoch'], 
-            step_save= config['step_save']
+            step_save= config['step_save'],
+            verbose= config['verbose']
     )
 

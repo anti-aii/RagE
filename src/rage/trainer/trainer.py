@@ -141,7 +141,7 @@ class _Trainer:
         step_loss, step_fr= 0, 0
         
         if verbose:
-            pb_i= Progbar(self.total_steps, verbose= verbose, stateful_metrics= self.metrics)
+            pb_i= Progbar(self.total_steps // self.epochs, verbose= verbose, stateful_metrics= self.metrics)
 
         for idx, data in enumerate(self.dataloader_train): 
             with autocast():

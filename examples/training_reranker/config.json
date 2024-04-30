@@ -3,7 +3,7 @@
     "tokenizer_name": "vinai/phobert-base-v2", 
     "architectures": {
         "model_name": "vinai/phobert-base-v2",
-        "type_backbone": "bert", 
+        "type_backbone": "mlm", 
         "dropout": 0.1, 
         "using_hidden_states": false, 
         "pooling": "dense_first", 

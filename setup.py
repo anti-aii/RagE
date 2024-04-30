@@ -9,7 +9,9 @@ _dep= ["transformers>= 4.31.0",
        "pandas >= 2.0.3",
        "scipy >= 1.11.1", 
        "scikit-learn >= 1.3.0", 
-       "huggingface-hub >= 0.19.4"
+       "huggingface-hub >= 0.19.4", 
+       "prettytable >= 3.10.0", 
+       "wandb >= 0.16.6"
 
 ]
 
