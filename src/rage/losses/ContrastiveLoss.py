@@ -1,19 +1,30 @@
+from typing import Dict, Iterable
 import torch 
-from torch import nn 
+from torch import nn, Tensor
+from .loss_rag import LossRAG
+from ..constant import EMBEDDING_CONTRASTIVE
 
-## Idea from OnlineContrastiveLoss of sentence-transformers 
 
-
-
-class ContrastiveLoss(nn.Module):
-    def __init__(self, margin): 
+class ContrastiveLoss(LossRAG):
+    def __init__(self, margin: float= 0.5): 
         super(ContrastiveLoss, self).__init__()
         self.margin= margin
         self.distance= lambda x, y: 1- torch.cosine_similarity(x, y)
 
-    def forward(self, embedding_a, embedding_b, labels): 
+        self.pretty_name= "contrastive"
+        self.task_name= EMBEDDING_CONTRASTIVE
 
-        distance_matrix= self.distance(embedding_a, embedding_b)
+    def _get_config_params(self):
+        return {
+            'margin': self.margin, 
+            'pretty_name': self.pretty_name, 
+            'task_name': self.task_name
+        }
+
+    def forward(self, features: Iterable[Dict[str, Tensor]], labels: Tensor): 
+        embeddings= self.model(features, return_embeddings= True)
+
+        distance_matrix= self.distance(embeddings[0], embeddings[1])
         negs= distance_matrix[labels == 0]
         poss= distance_matrix[labels == 1]
         hard_negative = negs[negs < (poss.max() if len(poss) > 1 else negs.mean())]

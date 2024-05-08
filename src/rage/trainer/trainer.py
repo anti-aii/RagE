@@ -1,13 +1,14 @@
-from typing import Type, Optional, Union
+from typing import Type, Union, Iterable, Dict
 from abc import abstractmethod
 import pandas as pd 
 import torch 
-import torch.nn as nn 
+from torch import nn, Tensor
 import datasets
 from torch.utils.data import DataLoader
 from torch.cuda.amp import autocast, GradScaler 
 import wandb 
 
+from .rag_parallel import RagDataParallel
 from .argument import ArgumentDataset, ArgumentTrain
 
 
@@ -18,22 +19,24 @@ from ..datasets import (
     SentABDL
 )
 from ..losses import (
+    LossRAG, 
     CosineSimilarityLoss, 
     MSELogLoss, 
     ContrastiveLoss,
     TripletLoss, 
     InBatchNegativeLoss,
-    BINARY_CROSS_ENTROPY_LOSS,
-    CATEGORICAL_CROSS_ENTROPY_LOSS,
-    MSE_LOGARIT,
-    COSINE_SIMILARITY_LOSS, 
-    CONTRASTIVE_LOSS,
-    TRIPLET_LOSS, 
-    IN_BATCH_NEGATIVES_LOSS,
-    EMBEDDING_RANKER_NUMERICAL,
-    _criterion,
-    rule_loss_task
+    GITSEmbedLoss,
+    BinaryCrossEntropy, 
+    CategoricalCrossEntropy
 )
+
+from ..constant import (
+    EMBEDDING_CONTRASTIVE, 
+    EMBEDDING_IN_BATCH_NEGATIVES, 
+    EMBEDDING_RANKER_NUMERICAL, 
+    EMBEDDING_TRIPLET
+)
+
 from ..utils.process_bar import Progbar
 from ..utils.io_utils import _print_out 
 from ..utils import save_model
@@ -55,8 +58,7 @@ class _Trainer:
         pass
 
     def _setup_config_argument_datasets(self): 
-        self.max_length= self.arg_data.max_length
-        self.tokenizer= self.arg_data.tokenizer
+        self.max_length= self.arg_data.max_length    
         self.batch_size= self.arg_data.batch_size_per_gpu * torch.cuda.device_count()
         self.shuffle= self.arg_data.shuffle
         self.num_workers= self.arg_data.num_workers
@@ -112,7 +114,7 @@ class _Trainer:
 
     def _setup_dataparallel(self): 
         if self.data_parallel: 
-            self.model_lm= nn.DataParallel(self.model_lm)
+            self.model_lm= RagDataParallel(self.model_lm)
         self.device= torch.device('cuda' if torch.cuda.is_available() else 'cpu')
  
     def _setup_data(self, data_train, data_eval): 
@@ -129,6 +131,47 @@ class _Trainer:
         # self._setup_optim() 
         self._setup_mxprecision()
         self.__status_setup_overall= True
+
+    def _take_future(self, features: Iterable[Dict[str, Tensor]], labels: Tensor= None): 
+        # input: 
+        result= []
+        for value in features: 
+            result.append(dict((i, j.to(self.device, non_blocking=True)) for i, j in value.items()))
+
+        if labels: 
+            return {'features': result, 
+                    'labels': labels.to(self.device, non_blocking= True)
+            }
+        return result
+    
+    def _select_loss_functon(self, loss_function: Union[str, LossRAG]) -> LossRAG: 
+        if isinstance(loss_function, str):
+            ## defind list loss defaul param 
+            list_loss= [
+            CosineSimilarityLoss(), 
+            MSELogLoss(), 
+            ContrastiveLoss(),
+            TripletLoss(), 
+            InBatchNegativeLoss(),
+            CategoricalCrossEntropy(),
+            BinaryCrossEntropy()
+            ]
+
+            for loss_func in list_loss: 
+                if loss_function == loss_func.pretty_name: 
+                    loss_func.compile(model= self.model_lm)
+                    return loss_func
+            raise ValueError("The loss function you entered does not exist or is not supported to use with pretty_name.\
+                     Please read the supported loss functions carefully")
+
+        else: 
+            try: 
+                loss_function.compile(model= self.model_lm)
+                return loss_function
+            except: 
+                raise ValueError("If you use custom loss functions, \
+                        you must inherit the LossRAG found in rage.losses.LossRAG")
+            
     
     @abstractmethod
     def _compute_loss(self, data):
@@ -231,7 +274,7 @@ class _TrainerLLM(_Trainer):
         super().__init__(model, argument_train= argument_train, argument_dataset= argument_dataset)
         
     def _setup_addtion_config(self):
-        self.collate= GenAnsCollate(self.tokenizer, self.max_length)
+        self.collate= GenAnsCollate(self.model.tokenizer, self.max_length)
 
     def _setup_dataset(self): 
         train_dataset= GenAnsDL(self.data_train)
@@ -268,26 +311,10 @@ class _TrainerBiEncoder(_Trainer):  ## support
         super().__init__(model, argument_train= argument_train, argument_dataset= argument_dataset)
         
     def _setup_addtion_config(self):
-        self.task= rule_loss_task(self.loss_function)
+        self.loss= self._select_loss_functon(self.loss_function)
         
-        if isinstance(self.loss_function, str): 
-
-            assert self.loss_function in [BINARY_CROSS_ENTROPY_LOSS, 
-                            CATEGORICAL_CROSS_ENTROPY_LOSS, 
-                            COSINE_SIMILARITY_LOSS, 
-                            CONTRASTIVE_LOSS,
-                            TRIPLET_LOSS,
-                            IN_BATCH_NEGATIVES_LOSS]
-            self.criterion= _criterion[self.loss_function]
-
-        else: 
-            assert isinstance(self.loss_function, (nn.BCEWithLogitsLoss, nn.CrossEntropyLoss,
-                            CosineSimilarityLoss, ContrastiveLoss, TripletLoss, InBatchNegativeLoss))
-            
-            self.criterion= self.loss_function
-        
-        self.collate= SentABCollate(self.tokenizer, mode= "bi_encoder",
-                    max_length= self.max_length, task= self.task, augment_func= self.augment_data_function)
+        self.collate= SentABCollate(self.model.tokenizer, mode= "bi_encoder",
+                    max_length= self.max_length, task= self.loss.task_name, augment_func= self.augment_data_function)
     
     def _setup_dataset(self):
         train_dataset= SentABDL(self.data_train, task= self.task)
@@ -298,63 +325,44 @@ class _TrainerBiEncoder(_Trainer):  ## support
         return train_dataset, None
 
     def _compute_loss(self, data):        
-        if self.task != EMBEDDING_RANKER_NUMERICAL: 
-
-            if self.loss_function == CONTRASTIVE_LOSS or isinstance(self.loss_function, ContrastiveLoss): 
-                output= self.model_lm(
-                    (
-                    dict((i, j.to(self.device, non_blocking=True)) for i, j in data['sent1'].items() if i in ['input_ids', 'attention_mask']),
-                    dict((i, j.to(self.device, non_blocking=True)) for i, j in data['sent2'].items() if i in ['input_ids', 'attention_mask'])
-                    ),
-                    return_embeddings= True
-                )
-                return self.criterion(output[0], output[1], data['label'])
+        if self.loss.task_name == EMBEDDING_CONTRASTIVE:
+            data= self._take_future(
+                features= [
+                    data['sent1'], data['sent2']
+                ], 
+                label= data['label']
+            )
             
-
-            if self.loss_function == TRIPLET_LOSS or isinstance(self.loss_function, TripletLoss): 
-                output= self.model_lm(
-                    (
-                    dict((i, j.to(self.device, non_blocking=True)) for i, j in data['anchor'].items() if i in ['input_ids', 'attention_mask']),
-                    dict((i, j.to(self.device, non_blocking=True)) for i, j in data['pos'].items() if i in ['input_ids', 'attention_mask']),
-                    dict((i, j.to(self.device, non_blocking=True)) for i, j in data['neg'].items() if i in ['input_ids', 'attention_mask'])
-                    ),
-                    return_embeddings= True
-                )
-                return self.criterion(*output)
-            
-            if self.loss_function == IN_BATCH_NEGATIVES_LOSS or isinstance(self.loss_function, InBatchNegativeLoss): 
-                data_input= [
-                    dict((i, j.to(self.device, non_blocking=True)) for i, j in data['anchor'].items() if i in ['input_ids', 'attention_mask']),
-                    dict((i, j.to(self.device, non_blocking=True)) for i, j in data['pos'].items() if i in ['input_ids', 'attention_mask']),
+        elif self.loss.task_name == EMBEDDING_TRIPLET: 
+            data= self._take_future(
+                features= [
+                    data['anchor'], data['pos'], data['neg']
                 ]
+            )
+        
+        elif self.loss.task_name  == EMBEDDING_IN_BATCH_NEGATIVES: 
+            mini_data=[data['anchor'], data['pos'], data['neg']] 
+            if len(data) > 2: 
+                for i in range(len(data)-2): 
+                    mini_data.append(data[f'hard_neg_{i+1}'])
 
-                if len(data) > 2: 
-                    for i in range(len(data)-2): 
-                        data_input.append(
-                            dict((i, j.to(self.device, non_blocking=True)) for i, j in data[f'hard_neg_{i+1}'].items() if i in ['input_ids', 'attention_mask'])
-                        )
-                
-                output= self.model_lm(data_input, return_embeddings= True)
-                return self.criterion(output)
+            data= self._take_future(
+                features= mini_data
+            )
             
         elif self.task == EMBEDDING_RANKER_NUMERICAL: 
-            label= data['label'].to(self.device, non_blocking=True)
-            data_input= (
-                dict((i, j.to(self.device, non_blocking=True)) for i, j in data['x_1'].items() if i in ['input_ids', 'attention_mask']),
-                dict((i, j.to(self.device, non_blocking=True)) for i, j in data['x_2'].items() if i in ['input_ids', 'attention_mask']),
+            data= self._take_future(
+                features= [
+                    data['x_1'], data['x_2']
+                ], 
+                labels= data['label']
             )
-
-            if self.loss_function== COSINE_SIMILARITY_LOSS or isinstance(self.loss_function, CosineSimilarityLoss): 
-                output= self.model_lm(data_input, return_embeddings= True)
-                return self.criterion(output[0], output[1], label.to(dtype= torch.float32))
+        else: 
+            raise ValueError(
+                "If you run custom loss functions, you must attach a task_name to it.\
+                 Please refer to the loss functions defined in rage.losses.")
             
-            output= self.model_lm(data_input)
-
-            if self.loss_function== BINARY_CROSS_ENTROPY_LOSS or isinstance(self.loss_function, nn.BCEWithLogitsLoss):
-                output= output.view(-1,)
-                label= label.to(dtype= torch.float32)
-            
-            return self.criterion(output, label) 
+        return self.loss(**data) 
             
     
     def _evaluate(self): 
@@ -377,23 +385,10 @@ class _TrainerCrossEncoder(_Trainer):
         super().__init__(model, argument_train= argument_train, argument_dataset= argument_dataset)
         
     def _setup_addtion_config(self):
-        self.task= rule_loss_task(self.loss_function)
-
-        if isinstance(self.loss_function, str): 
-
-            assert self.loss_function in [BINARY_CROSS_ENTROPY_LOSS, 
-                            CATEGORICAL_CROSS_ENTROPY_LOSS, 
-                            MSE_LOGARIT]
-            self.criterion= _criterion[self.loss_function]
-
-        else: 
-            assert isinstance(self.loss_function, (nn.BCEWithLogitsLoss, nn.CrossEntropyLoss,
-                            MSELogLoss))
-            
-            self.criterion= self.loss_function
-    
-        self.collate= SentABCollate(self.tokenizer, mode= "cross_encoder", 
-                    max_length= self.max_length, task= self.task, augment_func= self.augment_data_function)
+        self.loss= self._select_loss_functon(self.loss_function)
+        
+        self.collate= SentABCollate(self.model.tokenizer, mode= "cross_encoder", 
+                    max_length= self.max_length, task= self.loss.task_name, augment_func= self.augment_data_function)
         
     def _setup_dataset(self):
         train_dataset= SentABDL(self.data_train, task= self.task)
@@ -409,12 +404,16 @@ class _TrainerCrossEncoder(_Trainer):
         )
         
         label= data['label'].to(self.device, non_blocking=True)
+
+        if self.loss.task_name== EMBEDDING_RANKER_NUMERICAL:
+            data= self._take_future(
+                features= [
+                    data['x']
+                ], 
+                labels= data['label']
+            )
         
-        if (self.loss_function== BINARY_CROSS_ENTROPY_LOSS or isinstance(self.loss_function, 
-                nn.BCEWithLogitsLoss)) or (self.loss_function== MSE_LOGARIT or isinstance(self.loss_function, MSELogLoss)):
-            output= output.view(-1,)
-            label= label.to(dtype= torch.float32)
-        return self.criterion(output, label)
+        return self.loss(**data)
     
     def _evaluate(self): 
         self.model_lm.eval()

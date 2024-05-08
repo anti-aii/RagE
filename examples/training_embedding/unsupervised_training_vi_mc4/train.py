@@ -94,7 +94,7 @@ if __name__ == "__main__":
     )
     
     ars_dataset= ArgumentDataset(
-                tokenizer= config['tokenizer_name'],
+
                 max_length= config['max_length'], 
                 batch_size_per_gpu= config['batch_size'], 
                 shuffle= config['shuffle'], 

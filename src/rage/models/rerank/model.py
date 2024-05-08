@@ -148,7 +148,7 @@ class Reranker(ModelRag, InferModel):
         with torch.no_grad(): 
             embedding= self(dict( (i, j.to(self.device)) for i,j in inputs.items()))
         
-        return nn.Sigmoid()(torch.tensor(embedding))
+        return nn.Sigmoid()(embedding)
 
     def rank(
         self, 

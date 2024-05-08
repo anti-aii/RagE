@@ -33,7 +33,6 @@ class ArgumentDataset:
         shuffle: Optional[bool]= True, num_workers: int= 16, augment_data_function: TextAugment= None,
         pin_memory: Optional[bool]= True, prefetch_factor: int= 8, persistent_workers: Optional[bool]= True):
         self.max_length= max_length
-        self.tokenizer= tokenizer
         self.batch_size_per_gpu= batch_size_per_gpu 
         self.shuffle= shuffle
         self.num_workers= num_workers

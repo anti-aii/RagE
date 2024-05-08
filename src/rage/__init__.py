@@ -20,4 +20,4 @@ from .utils import (
 #     GenAnsCollate
 # )
 
-__version__= "1.0.0dev"
+__version__= "1.1.0dev"

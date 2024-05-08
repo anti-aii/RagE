@@ -7,7 +7,7 @@ from ..datareader import DataReader
 from ...utils.augment_text import TextAugment
 from typing import Union
 
-from ...losses import (
+from ...constant import (
     EMBEDDING_RANKER_NUMERICAL,
     EMBEDDING_CONTRASTIVE,
     EMBEDDING_TRIPLET,
@@ -89,7 +89,10 @@ class SentABCollate:
                             padding= 'longest',
                             return_tensors= 'pt', 
                             max_length= self.max_length)
-        return x
+        return {
+            'input_ids': x['input_ids'], 
+            'attention_mask': x['attention_mask']
+        }
     
     def _using_augment(self, data):
         # using noise dropout prob = 0.1
