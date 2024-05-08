@@ -8,7 +8,7 @@ Currently, we have completed the basic training pipeline for the model, but ther
 - Currently, you can only download from the source, however, in the future, we will upload it to PyPI. RagE can be installed from source with the following commands: 
 ```
 git clone https://github.com/anti-aii/RagE.git
-cd rage
+cd RagE
 pip install -e .
 ```
 ## Quick start 🥮
