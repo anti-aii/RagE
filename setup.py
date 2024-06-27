@@ -22,7 +22,7 @@ description= """RagE (Rag Engine) - A tool supporting the construction and train
 It also facilitates the rapid development of Q&A systems and chatbots following the RAG model."""
 setup(
     name='rage',
-    version= '1.1.0dev', 
+    version= '1.1.1dev', 
     description= description, 
     long_description= long_description,
     author= 'Nguyễn Tiến Đạt', 
