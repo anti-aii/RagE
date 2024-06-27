@@ -29,7 +29,7 @@ class ArgumentTrain:
 
 
 class ArgumentDataset: 
-    def __init__(self, tokenizer: Union[str, PreTrainedTokenizer], max_length: int= 256, batch_size_per_gpu: int = 8, 
+    def __init__(self, max_length: int= 256, batch_size_per_gpu: int = 8, 
         shuffle: Optional[bool]= True, num_workers: int= 16, augment_data_function: TextAugment= None,
         pin_memory: Optional[bool]= True, prefetch_factor: int= 8, persistent_workers: Optional[bool]= True):
         self.max_length= max_length

@@ -1,7 +1,7 @@
-from typing import Optional, List, Type, Union
+from typing import Optional, List, Type
 import torch, torch.nn as nn 
 import numpy as np 
-from transformers import AutoModelForCausalLM, AutoModelForSeq2SeqLM, AutoTokenizer
+from transformers import PreTrainedTokenizer
 from peft import (
     LoraConfig, 
     get_peft_model, 
@@ -12,12 +12,10 @@ import loralib as lora
 from ...trainer.argument import ArgumentDataset, ArgumentTrain
 from ...utils import load_model
 from ...utils.process_bar import Progbar
-from ..componets import load_backbone
+from ..componets import selective_model_base
 from ..model_rag import ModelRag
 from ..model_infer import InferModel
 from ...trainer.trainer import _TrainerLLM
-
-### Only support Bloom and T5
 
 class CastOutputToFloat(nn.Sequential):
   def forward(self, x): return super().forward(x).to(torch.float32)
@@ -32,10 +30,24 @@ def load_model(auto_model, model_name, torch_dtype, quantization_cfg):
             )
 
 class LLM(ModelRag, InferModel):
-    def __init__(self, model_name: Type[str],  torch_dtype= torch.float16, type_backbone= "casual_lm", 
-        lora_r: Optional[int]= 32, lora_alpha: Optional[int]= 32, lora_dropout: Optional[int]= 0.05, 
-        target_modules: List[str]= None, merge_lora= False, gradient_ckpt: bool= True, use_cache: bool= False, 
-        quantization_config= None, torch_compile= False, backend_torch_compile: str= None, device= None
+    def __init__(
+        self, 
+        model_name: Type[str], 
+        model_base: Type[torch.nn.Module]= None, 
+        tokenizer: Type[PreTrainedTokenizer]= None, 
+        torch_dtype= torch.float16, 
+        type_backbone= "casual_lm", 
+        lora_r: Optional[int]= 32, 
+        lora_alpha: Optional[int]= 32, 
+        lora_dropout: Optional[int]= 0.05, 
+        target_modules: List[str]= None, 
+        merge_lora= False, 
+        gradient_ckpt: bool= True,
+        use_cache: bool= False, 
+        quantization_config= None, 
+        torch_compile= False, 
+        backend_torch_compile: str= None, 
+        device= None
     ): 
         super().__init__()
         assert type_backbone in ['casual_lm', 'seq2seq']
@@ -54,11 +66,18 @@ class LLM(ModelRag, InferModel):
         self.torch_dtype= torch_dtype
         self.device= device
 
-        self.tokenizer= AutoTokenizer.from_pretrained(model_name, use_fast= True)
-        self.tokenizer.padding_side= 'left'
+        # self.tokenizer= AutoTokenizer.from_pretrained(model_name, use_fast= True)
 
-        self.model= load_backbone(model_name, type_backbone= type_backbone, torch_dtype= torch_dtype, 
-                                  quantization_config= quantization_config)
+        self.model, self.tokenizer= selective_model_base(
+            model_base= model_base,
+            tokenizer_base= tokenizer,
+            model_name= model_name, 
+            type_backbone= type_backbone, 
+            torch_dtype= torch_dtype, 
+            quantization_config= quantization_config
+        )
+        self.tokenizer.padding_side= 'left'
+        
         if type_backbone== 'casual_lm': 
             self.TaskType= TaskType.CAUSAL_LM
 

@@ -1,14 +1,15 @@
-from typing import List
+from typing import List, Type
 import numpy as np 
 import torch 
 import torch.nn as nn 
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, PreTrainedTokenizer
+
 
 from ...trainer.argument import ArgumentDataset, ArgumentTrain
 from ..model_rag import ModelRag
 from ..model_infer import InferModel
 from ...trainer.trainer import _TrainerCrossEncoder
-from ..componets import ExtraRoberta, load_backbone, PoolingStrategy
+from ..componets import ExtraRoberta, selective_model_base, PoolingStrategy
 from ...utils.process_bar import Progbar
 from ...utils.convert_data import _convert_data 
 
@@ -18,7 +19,9 @@ class Reranker(ModelRag, InferModel):
     # using 
     def __init__(
         self, 
-        model_name= 'vinai/phobert-base-v2', 
+        model_name: str= 'vinai/phobert-base-v2', 
+        model_base: Type[torch.nn.Module]= None, 
+        tokenizer: Type[PreTrainedTokenizer]= None, 
         type_backbone= 'mlm',
         aggregation_hidden_states= True, 
         required_grad_base_model= True, 
@@ -45,10 +48,18 @@ class Reranker(ModelRag, InferModel):
         self.quantization_config= quantization_config
         self.backend_torch_compile= backend_torch_compile
 
-        self.tokenizer= AutoTokenizer.from_pretrained(model_name, add_prefix_space= True, use_fast= True)
+        # self.tokenizer= AutoTokenizer.from_pretrained(model_name, add_prefix_space= True, use_fast= True)
         
-        self.model= load_backbone(model_name, type_backbone= type_backbone, dropout= dropout,
-                                using_hidden_states= aggregation_hidden_states)
+        self.model, self.tokenizer= selective_model_base(
+            model_base= model_base, 
+            tokenizer_base= tokenizer, 
+            model_name= model_name, 
+            type_backbone= type_backbone, 
+            dropout= dropout,
+            using_hidden_states= aggregation_hidden_states,
+            torch_dtype= torch_dtype, 
+            quantization_config= quantization_config
+        )
         
         self.pooling= PoolingStrategy(strategy= strategy_pooling, units= self.model.config.hidden_size)
 
