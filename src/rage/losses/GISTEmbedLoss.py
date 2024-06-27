@@ -71,7 +71,7 @@ class GITSEmbedLoss(LossRAG):
         # model's similarities
         aa_score= cos_sim(anchor, anchor)
         ap_score= cos_sim(anchor, pos)
-        pp_score= cos_sim(pos, pos)
+        # pp_score= cos_sim(pos, pos)
 
         ap_score_gold= ap_score.diagonal(dim1= 1, dim2= 2)
 
