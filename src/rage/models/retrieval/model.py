@@ -60,6 +60,11 @@ class SentenceEmbedding(ModelRag, InferModel):
             quantization_config= quantization_config
         )
         
+        try: 
+            self.model_name= self.model.name_or_path
+        except: 
+            self.model_name= None 
+        
         self.pooling= PoolingStrategy(strategy= strategy_pooling, units= self.model.config.hidden_size)
 
         if not required_grad_base_model:
@@ -118,7 +123,7 @@ class SentenceEmbedding(ModelRag, InferModel):
     def _get_config_model_base(self):
         return {
             "model_type_base": self.model.__class__.__name__, 
-            "model_name": self.model_name, 
+            "model_name_or_path": self.model_name, 
             "type_backbone": self.type_backbone, 
             "required_grad_base_model": self.requires_grad_base_model, 
             "aggregation_hidden_states": self.aggregation_hidden_states,

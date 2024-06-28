@@ -76,6 +76,12 @@ class LLM(ModelRag, InferModel):
             torch_dtype= torch_dtype, 
             quantization_config= quantization_config
         )
+        
+        try: 
+            self.model_name= self.model.name_or_path
+        except: 
+            self.model_name= None 
+            
         self.tokenizer.padding_side= 'left'
         
         if type_backbone== 'casual_lm': 
@@ -131,7 +137,7 @@ class LLM(ModelRag, InferModel):
     def _get_config_model_base(self):
         return {
             "model_type_base": self.model.__class__.__name__, 
-            "model_name": self.model_name, 
+            "model_name_or_path": self.model_name, 
             "type_backbone": self.type_backbone,
             "gradient_checkpoint": self.gradient_ckpt, 
             "use_cache": self.use_cache, 
