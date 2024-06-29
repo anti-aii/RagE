@@ -1,4 +1,4 @@
-from typing import Union
+from typing import Union, Type
 import copy
 import pandas as pd 
 from torch.utils.data import Dataset 
@@ -24,7 +24,12 @@ class GenAnsDL(Dataset):
     return x 
 
 class GenAnsCollate: 
-  def __init__(self, tokenizer: Union[str, PreTrainedTokenizer]= 'bigscience/tokenizer', max_length= 256):
+  def __init__(
+    self, 
+    tokenizer: Union[str, PreTrainedTokenizer]= 'bigscience/tokenizer', 
+    max_length= 256,
+    advance_config_encode: Type[dict]= None,
+  ):
 
     if isinstance(tokenizer, str):
         self.tokenizer= AutoTokenizer.from_pretrained(tokenizer, use_fast= True)
@@ -32,6 +37,7 @@ class GenAnsCollate:
         self.tokenizer= tokenizer 
 
     self.max_length= max_length
+    self.advance_config_encode= advance_config_encode
     self.tokenizer.padding_side= 'left'
   
   def __call__(self, data): 
@@ -41,7 +47,8 @@ class GenAnsCollate:
                                    truncation= True, 
                                    padding= 'longest',
                                    max_length= self.max_length, 
-                                   return_tensors= 'pt')
+                                   return_tensors= 'pt',
+                                   **self.advance_config_encode)
     
     label = copy.deepcopy(x['input_ids'])
     label[label == self.tokenizer.pad_token_id] = -100 

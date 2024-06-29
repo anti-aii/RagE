@@ -1,4 +1,4 @@
-from typing import List, Type
+from typing import List, Type, Union
 import numpy as np 
 import torch 
 import torch.nn as nn 
@@ -177,14 +177,25 @@ class SentenceEmbedding(ModelRag, InferModel):
         norm_weight= torch.sum(input ** p, dim= -1) ** (1/p)
         return input/ norm_weight.view(-1, 1)
     
-    def _preprocess_tokenize(self, text, max_legnth= 256): 
+    def _preprocess_tokenize(
+        self, 
+        text, 
+        max_legnth= 256, 
+        advance_config_encode: Type[dict]= None): 
         # 256 phobert, t5 512 
         inputs= self.tokenizer.batch_encode_plus(text, return_tensors= 'pt', 
-                            padding= 'longest', max_length= max_legnth, truncation= True)
+                padding= 'longest', max_length= max_legnth, truncation= True, 
+                **advance_config_encode)
         return inputs
 
-    def _execute_per_batch(self, text: List[str], max_length= 256, normalize_embedding= None):
-        inputs= self._preprocess_tokenize(text, max_length)
+    def _execute_per_batch(
+        self, 
+        text: List[str], 
+        max_length= 256, 
+        advance_config_encode: Type[dict]= None,
+        normalize_embedding= None
+    ):
+        inputs= self._preprocess_tokenize(text, max_length, advance_config_encode)
         with torch.no_grad(): 
             embedding= self.get_embedding(dict( (i, j.to(self.device)) for i,j in inputs.items()))
         if normalize_embedding: 
@@ -192,7 +203,16 @@ class SentenceEmbedding(ModelRag, InferModel):
         
         return embedding
     
-    def encode(self, text: List[str], batch_size= 64, max_length= 256, normalize_embedding= None, return_tensors= 'np', verbose= 1): 
+    def encode(
+        self, 
+        text: Union[str, List[str]], 
+        batch_size= 64, 
+        max_length= 256, 
+        advance_config_encode: Type[dict]= None,
+        normalize_embedding= None, 
+        return_tensors= 'np', 
+        verbose= 1
+    ): 
         """
         Encodes the input text.
 
@@ -208,6 +228,10 @@ class SentenceEmbedding(ModelRag, InferModel):
             np.ndarray or torch.Tensor: Encoded embeddings.
         """
         embeddings= []
+        
+        if isinstance(text, str): 
+            text= [text]
+        
         self._preprocess()
         if batch_size > len(text): 
             batch_size= len(text)
@@ -216,7 +240,11 @@ class SentenceEmbedding(ModelRag, InferModel):
         pbi= Progbar(len(text), verbose= verbose, unit_name= "Sample")
 
         for batch in batch_text: 
-            embeddings.append(self._execute_per_batch(batch.tolist(), max_length, normalize_embedding))
+            embeddings.append(self._execute_per_batch(
+                batch.tolist(), 
+                max_length, 
+                advance_config_encode,
+                normalize_embedding))
             pbi.add(len(batch))
 
         return _convert_data(torch.concat(embeddings).clone().detach(), return_tensors= return_tensors)

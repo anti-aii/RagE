@@ -29,10 +29,11 @@ class ArgumentTrain:
 
 
 class ArgumentDataset: 
-    def __init__(self, max_length: int= 256, batch_size_per_gpu: int = 8, 
+    def __init__(self, max_length: int= 256, advance_config_encode: Type[dict]= None, batch_size_per_gpu: int = 8, 
         shuffle: Optional[bool]= True, num_workers: int= 16, augment_data_function: TextAugment= None,
         pin_memory: Optional[bool]= True, prefetch_factor: int= 8, persistent_workers: Optional[bool]= True):
-        self.max_length= max_length
+        self.max_length= max_length,
+        self.advance_config_encode= advance_config_encode
         self.batch_size_per_gpu= batch_size_per_gpu 
         self.shuffle= shuffle
         self.num_workers= num_workers

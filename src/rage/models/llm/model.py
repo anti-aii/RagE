@@ -1,4 +1,4 @@
-from typing import Optional, List, Type
+from typing import Optional, List, Type, Union
 import torch, torch.nn as nn 
 import numpy as np 
 from transformers import PreTrainedTokenizer
@@ -34,7 +34,7 @@ class LLM(ModelRag, InferModel):
         self, 
         model_name: Type[str], 
         model_base: Type[torch.nn.Module]= None, 
-        tokenizer: Type[PreTrainedTokenizer]= None, 
+        tokenizer: Type[PreTrainedTokenizer]= None,
         torch_dtype= torch.float16, 
         type_backbone= "casual_lm", 
         lora_r: Optional[int]= 32, 
@@ -81,7 +81,7 @@ class LLM(ModelRag, InferModel):
             self.model_name= self.model.name_or_path
         except: 
             self.model_name= None 
-            
+                
         self.tokenizer.padding_side= 'left'
         
         if type_backbone== 'casual_lm': 
@@ -166,13 +166,22 @@ class LLM(ModelRag, InferModel):
         if self.training: 
             self.eval()
 
-    def _preprocess_tokenize(self, text): 
-        inputs= self.tokenizer.batch_encode_plus(text, padding= 'longest', 
-                                                return_tensors= 'pt')
+    def _preprocess_tokenize(
+        self, 
+        text,
+        advance_config_encode: Type[dict]= None
+    ): 
+        inputs= self.tokenizer.batch_encode_plus(text, padding= 'longest', return_tensors= 'pt',
+                **advance_config_encode)
         return inputs
     
-    def _execute_per_batch(self, text: List[str], config_generate):
-        inputs= self._preprocess_tokenize(text)
+    def _execute_per_batch(
+        self, 
+        text: List[str], 
+        advance_config_encode: Type[dict]= None,
+        config_generate: Type[dict]= None
+    ):
+        inputs= self._preprocess_tokenize(text, advance_config_encode)
         output_sequences= self.model.generate(input_ids= inputs['input_ids'].to(self.device), 
                         attention_mask= input['attention_mask'].to(self.device), **config_generate)
 
@@ -180,9 +189,19 @@ class LLM(ModelRag, InferModel):
         
         return self.tokenizer.batch_decode(output_sequences, skip_special_tokens= True)
     
-    def generate_text(self, text: List[str], batch_size= 4, config_generate= None, verbose= 1): 
+    def generate_text(
+        self, 
+        text: Union[str, List[str]], 
+        batch_size= 4, 
+        advance_config_encode: Type[dict]= None,
+        config_generate: Type[dict]= None, 
+        verbose= 1
+    ): 
         
         text_output= []
+        if isinstance(text, str): 
+            text= [text]
+            
         self._preprocess()
         if batch_size > len(text): 
             batch_size= len(text)
@@ -191,7 +210,10 @@ class LLM(ModelRag, InferModel):
         pbi= Progbar(len(text), verbose= verbose, unit_name= "Sample")
         
         for batch in batch_text: 
-            text_output.extend(self._execute_per_batch(text, config_generate))
+            text_output.extend(self._execute_per_batch(
+                text, 
+                advance_config_encode,
+                config_generate))
             pbi.add(len(batch))
         
         return text_output

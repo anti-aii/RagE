@@ -58,7 +58,8 @@ class _Trainer:
         pass
 
     def _setup_config_argument_datasets(self): 
-        self.max_length= self.arg_data.max_length    
+        self.max_length= self.arg_data.max_length   
+        self.advance_config_encode= self.arg_data.advance_config_encode
         self.batch_size= self.arg_data.batch_size_per_gpu * torch.cuda.device_count()
         self.shuffle= self.arg_data.shuffle
         self.num_workers= self.arg_data.num_workers
@@ -274,7 +275,7 @@ class _TrainerLLM(_Trainer):
         super().__init__(model, argument_train= argument_train, argument_dataset= argument_dataset)
         
     def _setup_addtion_config(self):
-        self.collate= GenAnsCollate(self.model.tokenizer, self.max_length)
+        self.collate= GenAnsCollate(self.model.tokenizer, self.max_length, self.advance_config_encode)
 
     def _setup_dataset(self): 
         train_dataset= GenAnsDL(self.data_train)
@@ -313,7 +314,7 @@ class _TrainerBiEncoder(_Trainer):  ## support
     def _setup_addtion_config(self):
         self.loss= self._select_loss_functon(self.loss_function)
         
-        self.collate= SentABCollate(self.model.tokenizer, mode= "bi_encoder",
+        self.collate= SentABCollate(self.model.tokenizer, mode= "bi_encoder", advance_config_encode= self.advance_config_encode,
                     max_length= self.max_length, task= self.loss.task_name, augment_func= self.augment_data_function)
     
     def _setup_dataset(self):
@@ -387,7 +388,7 @@ class _TrainerCrossEncoder(_Trainer):
     def _setup_addtion_config(self):
         self.loss= self._select_loss_functon(self.loss_function)
         
-        self.collate= SentABCollate(self.model.tokenizer, mode= "cross_encoder", 
+        self.collate= SentABCollate(self.model.tokenizer, mode= "cross_encoder", advance_config_encode= self.advance_config_encode,
                     max_length= self.max_length, task= self.loss.task_name, augment_func= self.augment_data_function)
         
     def _setup_dataset(self):

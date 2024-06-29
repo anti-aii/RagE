@@ -5,7 +5,7 @@ import datasets
 from transformers import AutoTokenizer, PreTrainedTokenizer
 from ..datareader import DataReader
 from ...utils.augment_text import TextAugment
-from typing import Union
+from typing import Union, Type
 
 from ...constant import (
     EMBEDDING_RANKER_NUMERICAL,
@@ -58,8 +58,14 @@ class SentABDL(Dataset):
             return self.data.iloc[index, :]
     
 class SentABCollate: 
-    def __init__(self, tokenizer: Union[str, PreTrainedTokenizer], max_length= 256, 
-                    mode: str= 'cross_encoder', task= None, augment_func: TextAugment= None):
+    def __init__(
+        self, 
+        tokenizer: Union[str, PreTrainedTokenizer], 
+        max_length= 256, 
+        advance_config_encode: Type[dict]= None,
+        mode: str= 'cross_encoder', 
+        task= None, 
+        augment_func: TextAugment= None):
         
         assert isinstance(augment_func, TextAugment) or augment_func is None
         assert mode in ['bi_encoder', 'cross_encoder']
@@ -80,6 +86,7 @@ class SentABCollate:
         
         self.mode= mode
         self.max_length= max_length
+        self.advance_config_encode= advance_config_encode
         self.augument_func= augment_func
         self.task= task 
 
@@ -88,7 +95,8 @@ class SentABCollate:
                             truncation= True, 
                             padding= 'longest',
                             return_tensors= 'pt', 
-                            max_length= self.max_length)
+                            max_length= self.max_length,
+                            **self.advance_config_encode)
         return {
             'input_ids': x['input_ids'], 
             'attention_mask': x['attention_mask']

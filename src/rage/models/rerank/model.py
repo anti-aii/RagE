@@ -1,4 +1,4 @@
-from typing import List, Type
+from typing import List, Type, Union
 import numpy as np 
 import torch 
 import torch.nn as nn 
@@ -32,7 +32,7 @@ class Reranker(ModelRag, InferModel):
         device= None, 
         quantization_config= None,
         torch_compile= False, 
-        backend_torch_compile: str= None
+        backend_torch_compile: str= None,
     ):
         
         super().__init__()
@@ -146,19 +146,26 @@ class Reranker(ModelRag, InferModel):
         if self.training: 
             self.eval()
     
-    def _preprocess_tokenize(self, text, max_length): 
+    def _preprocess_tokenize(
+        self, 
+        text, 
+        max_legnth= 256, 
+        advance_config_encode: Type[dict]= None): 
+        # 256 phobert, t5 512 
         inputs= self.tokenizer.batch_encode_plus(text, return_tensors= 'pt', 
-                            padding= 'longest', max_length= max_length, truncation= True)
+                padding= 'longest', max_length= max_legnth, truncation= True, 
+                **advance_config_encode)
         return inputs
     
     def _execute_per_batch(
-            self, 
-            text: List[list[str]], 
-            max_length= 256
-        ): 
+        self, 
+        text: List[list[str]], 
+        max_length= 256,
+        advance_config_encode: Type[dict]= None
+    ): 
         
         batch_text= list(map(lambda x: self.tokenizer.sep_token.join([x[0], x[1]]), text))
-        inputs= self._preprocess_tokenize(batch_text, max_length)
+        inputs= self._preprocess_tokenize(batch_text, max_length, advance_config_encode)
 
         with torch.no_grad(): 
             embedding= self(dict( (i, j.to(self.device)) for i,j in inputs.items()))
@@ -167,13 +174,18 @@ class Reranker(ModelRag, InferModel):
 
     def rank(
         self, 
-        text: List[list[str]], 
+        text: Union[str, List[str]], 
         batch_size= 64, 
         max_length= 256, 
+        advance_config_encode: Type[dict]= None,
         return_tensors= 'np', 
         verbose= 1
     ):  # [[a, b], [c, d]]
         results= [] 
+        
+        if isinstance(text, str): 
+            text= [text]
+             
         self._preprocess()
 
         if batch_size > len(text):
@@ -183,7 +195,10 @@ class Reranker(ModelRag, InferModel):
         pbi= Progbar(len(text), verbose= verbose, unit_name= "Sample")
 
         for batch in batch_text: 
-            results.append(self._execute_per_batch(batch.tolist(), max_length))
+            results.append(self._execute_per_batch(
+                batch.tolist(), 
+                max_length, 
+                advance_config_encode))
 
             pbi.add(len(batch))
 

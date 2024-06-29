@@ -85,7 +85,7 @@ Additionally, you can access our datasets and pretrained models by visiting http
 | anti-ai/ViEmbedding-base | SentenceEmbedding | 135.5M |[model](https://huggingface.co/anti-ai/ViEmbedding-base) |
 | anti-ai/BioViEmbedding-base-unsup | SentenceEmbedding | 135.5M |[model](https://huggingface.co/anti-ai/BioViEmbedding-base-unsup) | 
 | anti-ai/VieSemantic-base | SentenceEmbedding | 135.5M |[model](https://huggingface.co/anti-ai/VieSemantic-base) |
-| anti-ai/phobert-ranker-base | ReRanker | 135.6M |[model](https://huggingface.co/anti-ai/phobert-ranker-base) |
+
 
 
 ## Contacts

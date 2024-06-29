@@ -37,23 +37,19 @@ class PhoBertLongForMaskedLM(RobertaForMaskedLM):
 tokenizer_base = AutoTokenizer.from_pretrained("bluenguyen/longformer-phobert-base-4096")
 model_base = PhoBertLongForMaskedLM.from_pretrained("bluenguyen/longformer-phobert-base-4096")
 
-
-model_embed= SentenceEmbedding(
-    model_base= model_base, 
-    tokenizer= tokenizer_base,
-    aggregation_hidden_states= False, 
-    strategy_pooling= "dense_first"
+TXT = (
+    "Hoàng_Sa và Trường_Sa là <mask> Việt_Nam ."
+    + "Đó là điều không_thể chối_cãi ." * 10000
+    + "Bằng_chứng lịch_sử , pháp_lý về chủ_quyền của Việt_Nam với 2 quần_đảo này đã và đang được nhiều quốc_gia và cộng_đồng quốc_tế <mask> ."
 )
 
-print('Model Embedding: {}'.format(model_embed))
-
-
-model_ranker= Reranker(
+model= SentenceEmbedding(
     model_base= model_base, 
-    tokenizer= tokenizer_base,
+    tokenizer= tokenizer_base, 
     aggregation_hidden_states= False, 
-    strategy_pooling= "dense_first"
+    strategy_pooling= 'dense_first'
 )
 
+embedding= model.encode(TXT[0], max_length= 4096, normalize_embedding= 'l2', advance_config_encode= {'pad_to_multiple_of': 256})
 
-print('Model Reranker: {}'.format(model_ranker))
+print(embedding.shape)
