@@ -317,10 +317,10 @@ class _TrainerBiEncoder(_Trainer):  ## support
                     max_length= self.max_length, task= self.loss.task_name, augment_func= self.augment_data_function)
     
     def _setup_dataset(self):
-        train_dataset= SentABDL(self.data_train, task= self.task)
+        train_dataset= SentABDL(self.data_train, task= self.loss.task_name)
 
         if self.data_eval: 
-            return train_dataset, SentABDL(self.data_eval, task= self.task)
+            return train_dataset, SentABDL(self.data_eval, task= self.loss.task_name)
         
         return train_dataset, None
 
@@ -350,7 +350,7 @@ class _TrainerBiEncoder(_Trainer):  ## support
                 features= mini_data
             )
             
-        elif self.task == EMBEDDING_RANKER_NUMERICAL: 
+        elif self.loss.task_name == EMBEDDING_RANKER_NUMERICAL: 
             data= self._take_future(
                 features= [
                     data['x_1'], data['x_2']
@@ -391,10 +391,10 @@ class _TrainerCrossEncoder(_Trainer):
                     max_length= self.max_length, task= self.loss.task_name, augment_func= self.augment_data_function)
         
     def _setup_dataset(self):
-        train_dataset= SentABDL(self.data_train, task= self.task)
+        train_dataset= SentABDL(self.data_train, task= self.loss.task_name)
 
         if self.data_eval: 
-            return train_dataset, SentABDL(self.data_eval, task= self.task)
+            return train_dataset, SentABDL(self.data_eval, task= self.loss.task_name)
         
         return train_dataset, None
 
