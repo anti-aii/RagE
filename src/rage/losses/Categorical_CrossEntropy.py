@@ -16,6 +16,8 @@ class CategoricalCrossEntropy(LossRAG):
         label_smoothing: float= 0.
         ):
 
+        super(CategoricalCrossEntropy, self).__init__() 
+        
         self.loss_fct= nn.CrossEntropyLoss(
             weight= weight, 
             size_average= size_average, 

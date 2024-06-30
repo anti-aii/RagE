@@ -163,15 +163,14 @@ class _Trainer:
                     loss_func.compile(model= self.model_lm)
                     return loss_func
             raise ValueError("The loss function you entered does not exist or is not supported to use with pretty_name.\
-                     Please read the supported loss functions carefully")
+Please read the supported loss functions carefully")
 
         else: 
             try: 
                 loss_function.compile(model= self.model_lm)
                 return loss_function
             except: 
-                raise ValueError("If you use custom loss functions, \
-                        you must inherit the LossRAG found in rage.losses.LossRAG")
+                raise ValueError("If you use custom loss functions, you must inherit the LossRAG found in rage.losses.LossRAG")
             
     
     @abstractmethod

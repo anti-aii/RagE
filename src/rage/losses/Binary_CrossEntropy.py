@@ -14,6 +14,8 @@ class BinaryCrossEntropy(LossRAG):
         reduce = None, 
         reduction: str = 'mean', 
         pos_weight: Tensor = None):
+        
+        super(BinaryCrossEntropy, self).__init__()
 
         self.loss_fct= nn.BCEWithLogitsLoss(
             weight, 
