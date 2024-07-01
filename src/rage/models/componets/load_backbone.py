@@ -54,7 +54,8 @@ def selective_model_base(
         tokenizer= tokenizer_base
         load_tokenizer= False
     
-    if isinstance(kwargs['model_name'], str): 
+    
+    if isinstance(kwargs['model_name'], str) and model_base == None: 
         model, tokenizer_rp= load_backbone(
             **kwargs, 
             load_tokenizer= load_tokenizer)
