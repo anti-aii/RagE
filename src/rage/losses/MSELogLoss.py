@@ -1,4 +1,4 @@
-from typing import Iterable, Dict
+from typing import Iterable, Dict, Union
 import torch 
 from torch import nn, Tensor
 
@@ -21,7 +21,11 @@ class MSELogLoss(LossRAG):
             'task_name': self.task_name
         }
 
-    def forward(self, features: Iterable[Dict[str, Tensor]], labels: Tensor): 
+    def forward(
+        self, 
+        features: Union[Iterable[Dict[str, Tensor]], Dict[str, Tensor]], 
+        labels: Tensor
+    ): 
         output= self.model(features)
 
         output= self.cos_score_transformation(self.activation_fct(output))

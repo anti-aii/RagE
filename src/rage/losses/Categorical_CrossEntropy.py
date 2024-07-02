@@ -1,4 +1,4 @@
-from typing import Iterable, Dict
+from typing import Iterable, Dict, Union
 import torch 
 from torch import nn, Tensor
 from .loss_rag import LossRAG
@@ -48,6 +48,10 @@ class CategoricalCrossEntropy(LossRAG):
             'task_name': self.task_name
         }
     
-    def forward(self, features: Iterable[Dict[str, Tensor]], labels: Tensor): 
+    def forward(
+        self, 
+        features: Union[Iterable[Dict[str, Tensor]], Dict[str, Tensor]], 
+        labels: Tensor
+    ): 
         output= self.model(features)
         return self.loss_fct(output, labels.view(-1,))

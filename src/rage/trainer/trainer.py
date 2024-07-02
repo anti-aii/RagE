@@ -143,7 +143,8 @@ class _Trainer:
             return {'features': result, 
                     'labels': labels.to(self.device, non_blocking= True)
             }
-        return result
+        else:
+            return {'features': result}
     
     def _select_loss_functon(self, loss_function: Union[str, LossRAG]) -> LossRAG: 
         if isinstance(loss_function, str):
@@ -399,12 +400,6 @@ class _TrainerCrossEncoder(_Trainer):
         return train_dataset, None
 
     def _compute_loss(self, data):
-        output= self.model_lm(dict(
-            (i, j.to(self.device, non_blocking=True)) for i, j in data['x'].items() if i in ['input_ids', 'attention_mask'])
-        )
-        
-        label= data['label'].to(self.device, non_blocking=True)
-
         if self.loss.task_name== EMBEDDING_RANKER_NUMERICAL:
             data= self._take_future(
                 features= [
@@ -413,7 +408,7 @@ class _TrainerCrossEncoder(_Trainer):
                 labels= data['label']
             )
         
-        return self.loss(**data)
+        return self.loss(data['features'][0], data['labels'])
     
     def _evaluate(self): 
         self.model_lm.eval()
