@@ -139,7 +139,7 @@ class _Trainer:
         for value in features: 
             result.append(dict((i, j.to(self.device, non_blocking=True)) for i, j in value.items()))
 
-        if labels: 
+        if not labels is None: 
             return {'features': result, 
                     'labels': labels.to(self.device, non_blocking= True)
             }
