@@ -88,6 +88,7 @@ class _Trainer:
     def _setup_config(self): 
         self._setup_config_argument_datasets()
         self._setup_config_argument_train()
+        self._setup_dataparallel() 
         self._setup_addtion_config()
 
     def _setup_dataloader(self): 
@@ -127,7 +128,7 @@ class _Trainer:
         self._setup_optim()
 
     def _setup_overall(self):
-        self._setup_dataparallel() 
+        # self._setup_dataparallel() 
         self._setup_config()
         # self._setup_dataloader()
         # self._setup_optim() 
