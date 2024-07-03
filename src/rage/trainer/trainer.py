@@ -115,7 +115,7 @@ class _Trainer:
 
     def _setup_dataparallel(self): 
         if self.data_parallel: 
-            self.model_lm= torch.nn.DataParallel(self.model_lm)
+            self.model_lm= RagDataParallel(self.model_lm)
         self.device= torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.model_lm.to(self.device)
         
