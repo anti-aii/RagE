@@ -126,9 +126,9 @@ class _Trainer:
         self._setup_dataloader()
         self._setup_optim()
 
-    def _setup_overall(self): 
+    def _setup_overall(self):
+        self._setup_dataparallel() 
         self._setup_config()
-        self._setup_dataparallel()
         # self._setup_dataloader()
         # self._setup_optim() 
         self._setup_mxprecision()
