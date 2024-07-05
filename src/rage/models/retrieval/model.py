@@ -1,4 +1,4 @@
-from typing import List, Type, Union
+from typing import List, Type, Union, Optional
 import numpy as np 
 import torch 
 import torch.nn as nn 
@@ -181,7 +181,7 @@ class SentenceEmbedding(ModelRag, InferModel):
         self, 
         text, 
         max_legnth= 256, 
-        advance_config_encode: Type[dict]= None): 
+        advance_config_encode: Optional[dict]= None): 
         # 256 phobert, t5 512 
         inputs= self.tokenizer.batch_encode_plus(text, return_tensors= 'pt', 
                 padding= 'longest', max_length= max_legnth, truncation= True, 
@@ -192,7 +192,7 @@ class SentenceEmbedding(ModelRag, InferModel):
         self, 
         text: List[str], 
         max_length= 256, 
-        advance_config_encode: Type[dict]= None,
+        advance_config_encode: Optional[dict]= None,
         normalize_embedding= None
     ):
         inputs= self._preprocess_tokenize(text, max_length, advance_config_encode)
@@ -208,7 +208,7 @@ class SentenceEmbedding(ModelRag, InferModel):
         text: Union[str, List[str]], 
         batch_size= 64, 
         max_length= 256, 
-        advance_config_encode: Type[dict]= None,
+        advance_config_encode: Optional[dict]= None,
         normalize_embedding= None, 
         return_tensors= 'np', 
         verbose= 1

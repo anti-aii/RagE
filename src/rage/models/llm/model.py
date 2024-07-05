@@ -94,11 +94,11 @@ class LLM(ModelRag, InferModel):
 
         self._set_dtype_device()
 
-        if merge_lora: 
-            self.model.merge_and_unload()
-
-        if torch_compile:
-            self._compile_with_torch()
+        self.merge_lora= merge_lora 
+        self.torch_compile= torch_compile 
+        
+        self.__status_preprocess= False 
+        
 
     def _setup_gradient_ckpt(self):
         # Only use for training 
@@ -131,6 +131,8 @@ class LLM(ModelRag, InferModel):
         self.model.lm_head= CastOutputToFloat(self.model.lm_head)        
 
     def compile(self, argument_train: type[ArgumentTrain], argument_dataset: type[ArgumentDataset]):
+        if not self.__status_preprocess: 
+            self._preprocess()
         self._prepare_training()
         self._trainer= _TrainerLLM(self, argument_train, argument_dataset)
 
@@ -162,14 +164,23 @@ class LLM(ModelRag, InferModel):
     def forward(self, **inputs): 
         return self.model(**inputs)
     
-    def _preprocess(self):
+    def _preprocess_eval(self):
         if self.training: 
             self.eval()
+            
+    def _preprocess(self): 
+        if self.merge_lora: 
+            self.model.merge_and_unload()
+
+        if self.torch_compile:
+            self._compile_with_torch()
+            
+        self.__status_preprocess= True
 
     def _preprocess_tokenize(
         self, 
         text,
-        advance_config_encode: Type[dict]= None
+        advance_config_encode: Optional[dict]= None
     ): 
         inputs= self.tokenizer.batch_encode_plus(text, padding= 'longest', return_tensors= 'pt',
                 **advance_config_encode)
@@ -178,12 +189,12 @@ class LLM(ModelRag, InferModel):
     def _execute_per_batch(
         self, 
         text: List[str], 
-        advance_config_encode: Type[dict]= None,
-        config_generate: Type[dict]= None
+        advance_config_encode: Optional[dict]= None,
+        config_generate: Optional[dict]= None
     ):
         inputs= self._preprocess_tokenize(text, advance_config_encode)
         output_sequences= self.model.generate(input_ids= inputs['input_ids'].to(self.device), 
-                        attention_mask= input['attention_mask'].to(self.device), **config_generate)
+                        attention_mask= inputs['attention_mask'].to(self.device), **config_generate)
 
         torch.cuda.empty_cache()
         
@@ -193,16 +204,19 @@ class LLM(ModelRag, InferModel):
         self, 
         text: Union[str, List[str]], 
         batch_size= 4, 
-        advance_config_encode: Type[dict]= None,
-        config_generate: Type[dict]= None, 
+        advance_config_encode: Optional[dict]= None,
+        config_generate: Optional[dict]= None, 
         verbose= 1
     ): 
         
         text_output= []
         if isinstance(text, str): 
             text= [text]
+        
+        if not self.__status_preprocess: 
+            self._preprocess() 
+        self._preprocess_eval()
             
-        self._preprocess()
         if batch_size > len(text): 
             batch_size= len(text)
         

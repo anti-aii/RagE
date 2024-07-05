@@ -1,4 +1,4 @@
-from typing import List, Type, Union
+from typing import List, Type, Iterable, Optional
 import numpy as np 
 import torch 
 import torch.nn as nn 
@@ -150,7 +150,7 @@ class Reranker(ModelRag, InferModel):
         self, 
         text, 
         max_legnth= 256, 
-        advance_config_encode: Type[dict]= None): 
+        advance_config_encode: Optional[dict]= None): 
         # 256 phobert, t5 512 
         inputs= self.tokenizer.batch_encode_plus(text, return_tensors= 'pt', 
                 padding= 'longest', max_length= max_legnth, truncation= True, 
@@ -161,7 +161,7 @@ class Reranker(ModelRag, InferModel):
         self, 
         text: List[list[str]], 
         max_length= 256,
-        advance_config_encode: Type[dict]= None
+        advance_config_encode: Optional[dict]= None
     ): 
         
         batch_text= list(map(lambda x: self.tokenizer.sep_token.join([x[0], x[1]]), text))
@@ -174,18 +174,15 @@ class Reranker(ModelRag, InferModel):
 
     def rank(
         self, 
-        text: Union[str, List[str]], 
+        text: Iterable[List[str]], 
         batch_size= 64, 
         max_length= 256, 
-        advance_config_encode: Type[dict]= None,
+        advance_config_encode: Optional[dict]= None,
         return_tensors= 'np', 
         verbose= 1
     ):  # [[a, b], [c, d]]
         results= [] 
-        
-        if isinstance(text, str): 
-            text= [text]
-             
+                     
         self._preprocess()
 
         if batch_size > len(text):
