@@ -6,7 +6,8 @@ from transformers import (
     AutoModelForCausalLM, 
     AutoModelForSeq2SeqLM,
     AutoTokenizer,
-    PreTrainedTokenizer
+    PreTrainedTokenizer,
+    PreTrainedTokenizerFast
 )
 
 def load_backbone(model_name, type_backbone= 'mlm', using_hidden_states= True, dropout= 0.1,
@@ -50,7 +51,7 @@ def selective_model_base(
         model= model_base
     load_tokenizer= True
     
-    if isinstance(tokenizer_base, PreTrainedTokenizer): 
+    if isinstance(tokenizer_base, PreTrainedTokenizer) or isinstance(tokenizer_base, PreTrainedTokenizerFast): 
         tokenizer= tokenizer_base
         load_tokenizer= False
     

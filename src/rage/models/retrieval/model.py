@@ -2,7 +2,7 @@ from typing import List, Type, Union, Optional
 import numpy as np 
 import torch 
 import torch.nn as nn 
-from transformers import  AutoTokenizer, PreTrainedTokenizer
+from transformers import  AutoTokenizer, PreTrainedTokenizer, PreTrainedTokenizerFast
 
 from ...trainer.argument import ArgumentDataset, ArgumentTrain
 from ...trainer.trainer import _TrainerBiEncoder
@@ -19,7 +19,7 @@ class SentenceEmbedding(ModelRag, InferModel):
         self, 
         model_name= 'vinai/phobert-base-v2', 
         model_base: Type[torch.nn.Module]= None, 
-        tokenizer: Type[PreTrainedTokenizer]= None, 
+        tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast]= None, 
         type_backbone= 'mlm',
         aggregation_hidden_states= True, 
         concat_embeddings= False, 
@@ -227,6 +227,7 @@ class SentenceEmbedding(ModelRag, InferModel):
         Returns:
             np.ndarray or torch.Tensor: Encoded embeddings.
         """
+        advance_config_encode = advance_config_encode or {}
         embeddings= []
         
         if isinstance(text, str): 

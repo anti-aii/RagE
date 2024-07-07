@@ -1,8 +1,8 @@
-from typing import List, Type, Iterable, Optional
+from typing import List, Type, Iterable, Optional, Union
 import numpy as np 
 import torch 
 import torch.nn as nn 
-from transformers import AutoTokenizer, PreTrainedTokenizer
+from transformers import AutoTokenizer, PreTrainedTokenizer, PreTrainedTokenizerFast
 
 
 from ...trainer.argument import ArgumentDataset, ArgumentTrain
@@ -21,7 +21,7 @@ class Reranker(ModelRag, InferModel):
         self, 
         model_name: str= 'vinai/phobert-base-v2', 
         model_base: Type[torch.nn.Module]= None, 
-        tokenizer: Type[PreTrainedTokenizer]= None, 
+        tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast]= None, 
         type_backbone= 'mlm',
         aggregation_hidden_states= True, 
         required_grad_base_model= True, 
@@ -182,7 +182,8 @@ class Reranker(ModelRag, InferModel):
         verbose= 1
     ):  # [[a, b], [c, d]]
         results= [] 
-                     
+        advance_config_encode = advance_config_encode or {} 
+                    
         self._preprocess()
 
         if batch_size > len(text):

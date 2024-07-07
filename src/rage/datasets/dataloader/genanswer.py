@@ -3,7 +3,7 @@ import copy
 import pandas as pd 
 from torch.utils.data import Dataset 
 import datasets
-from transformers import AutoTokenizer, PreTrainedTokenizer
+from transformers import AutoTokenizer, PreTrainedTokenizer, PreTrainedTokenizerFast
 
 from ..datareader import DataReader 
 
@@ -26,14 +26,14 @@ class GenAnsDL(Dataset):
 class GenAnsCollate: 
   def __init__(
     self, 
-    tokenizer: Union[str, PreTrainedTokenizer]= 'bigscience/tokenizer', 
+    tokenizer: Union[str, PreTrainedTokenizer, PreTrainedTokenizerFast]= 'bigscience/tokenizer', 
     max_length= 256,
     advance_config_encode: Type[dict]= None,
   ):
 
     if isinstance(tokenizer, str):
         self.tokenizer= AutoTokenizer.from_pretrained(tokenizer, use_fast= True)
-    elif isinstance(tokenizer, PreTrainedTokenizer): 
+    elif isinstance(tokenizer, PreTrainedTokenizer) or isinstance(tokenizer, PreTrainedTokenizerFast): 
         self.tokenizer= tokenizer 
 
     self.max_length= max_length

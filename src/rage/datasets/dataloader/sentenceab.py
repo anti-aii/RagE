@@ -2,7 +2,7 @@ import pandas as pd
 import torch 
 from  torch.utils.data import Dataset 
 import datasets
-from transformers import AutoTokenizer, PreTrainedTokenizer
+from transformers import AutoTokenizer, PreTrainedTokenizer, PreTrainedTokenizerFast
 from ..datareader import DataReader
 from ...utils.augment_text import TextAugment
 from typing import Union, Type
@@ -60,7 +60,7 @@ class SentABDL(Dataset):
 class SentABCollate: 
     def __init__(
         self, 
-        tokenizer: Union[str, PreTrainedTokenizer], 
+        tokenizer: Union[str, PreTrainedTokenizer, PreTrainedTokenizerFast], 
         max_length= 256, 
         advance_config_encode: Type[dict]= None,
         mode: str= 'cross_encoder', 
@@ -78,7 +78,7 @@ class SentABCollate:
         if isinstance(tokenizer, str):
             self.tokenizer= AutoTokenizer.from_pretrained(tokenizer, add_prefix_space= True,
                                                       use_fast= True)
-        elif isinstance(tokenizer, PreTrainedTokenizer): 
+        elif isinstance(tokenizer, PreTrainedTokenizer) or isinstance(tokenizer, PreTrainedTokenizerFast): 
             self.tokenizer= tokenizer 
             
         if mode == 'cross_encoder' and task != EMBEDDING_RANKER_NUMERICAL: 

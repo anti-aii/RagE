@@ -1,7 +1,7 @@
 from typing import Optional, List, Type, Union
 import torch, torch.nn as nn 
 import numpy as np 
-from transformers import PreTrainedTokenizer
+from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
 from peft import (
     LoraConfig, 
     get_peft_model, 
@@ -34,7 +34,7 @@ class LLM(ModelRag, InferModel):
         self, 
         model_name: Type[str], 
         model_base: Type[torch.nn.Module]= None, 
-        tokenizer: Type[PreTrainedTokenizer]= None,
+        tokenizer: Union[PreTrainedTokenizer, PreTrainedTokenizerFast]= None,
         torch_dtype= torch.float16, 
         type_backbone= "casual_lm", 
         lora_r: Optional[int]= 32, 
@@ -208,7 +208,7 @@ class LLM(ModelRag, InferModel):
         config_generate: Optional[dict]= None, 
         verbose= 1
     ): 
-        
+        advance_config_encode = advance_config_encode or {}
         text_output= []
         if isinstance(text, str): 
             text= [text]
