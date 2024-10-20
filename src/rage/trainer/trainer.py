@@ -9,7 +9,7 @@ from torch.cuda.amp import autocast, GradScaler
 import wandb 
 
 from .rag_parallel import RagDataParallel
-from .argument import ArgumentDataset, ArgumentTrain
+from .argument import ArgumentDataset, ArgumentTrain, ArgumentMixTrainDataset
 
 
 from ..datasets import (
@@ -42,12 +42,26 @@ from ..utils.io_utils import _print_out
 from ..utils import save_model
 
 class _Trainer: 
-    def __init__(self, model, argument_train: Type[ArgumentTrain], argument_dataset: Type[ArgumentDataset]):
+    def __init__(
+        self, 
+        model, 
+        argument_training: Type[ArgumentMixTrainDataset]= None, 
+        argument_train: Type[ArgumentTrain]= None, 
+        argument_dataset: Type[ArgumentDataset]= None
+    ):
 
         # base 
         self.model_lm= model 
-        self.arg_train= argument_train
-        self.arg_data= argument_dataset
+        if argument_training: 
+            self.arg_train, self.arg_data= argument_training.get_att()
+        else: 
+            self.arg_train= argument_train 
+            self.arg_data= argument_dataset
+        
+        if self.arg_data is None: 
+            raise TypeError("argument_train must not be assigned None")
+        if self.arg_train is None: 
+            raise TypeError("argument_train must not be assigned None")
 
         ### status 
         self.__status_setup_overall= False 
