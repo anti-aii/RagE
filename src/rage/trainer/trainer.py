@@ -9,6 +9,7 @@ from torch.cuda.amp import autocast, GradScaler
 import wandb 
 
 from .rag_parallel import RagDataParallel
+from ..datasets.sampler import RandomBatchSampler, NoDuplicatesBatchSampler
 from .argument import ArgumentDataset, ArgumentTrain, ArgumentMixTrainDataset
 
 
@@ -16,7 +17,7 @@ from ..datasets import (
     GenAnsCollate, 
     GenAnsDL, 
     SentABCollate, 
-    SentABDL
+    SentABDL,
 )
 from ..losses import (
     LossRAG, 
@@ -72,7 +73,9 @@ class _Trainer:
         pass
 
     def _setup_config_argument_datasets(self): 
-        self.max_length= self.arg_data.max_length   
+        self.max_length= self.arg_data.max_length  
+        self.batch_sampler= self.arg_data.batch_sampler
+        self.drop_last= self.arg_data.drop_last 
         self.advance_config_encode= self.arg_data.advance_config_encode
         self.batch_size= self.arg_data.batch_size_per_gpu * torch.cuda.device_count()
         self.shuffle= self.arg_data.shuffle
@@ -95,10 +98,14 @@ class _Trainer:
         self.epochs= self.arg_train.epochs
         self.data_parallel= self.arg_train.data_parallel
 
+    @abstractmethod
     def _setup_addtion_config(self):
-
         raise NotImplementedError
-        
+    
+    @abstractmethod
+    def _setup_sampler(self, data): 
+        raise NotImplementedError
+    
     def _setup_config(self): 
         self._setup_config_argument_datasets()
         self._setup_config_argument_train()
@@ -107,11 +114,16 @@ class _Trainer:
 
     def _setup_dataloader(self): 
         train_dataset, eval_dataset= self._setup_dataset()
-        self.dataloader_train= DataLoader(train_dataset, batch_size= self.batch_size,
-                                          collate_fn= self.collate, shuffle= self.shuffle,
-                                          num_workers= self.num_workers, pin_memory= self.pin_memory, 
-                                          prefetch_factor= self.prefetch_factor, persistent_workers= self.persistent_workers)
-        
+        if self.batch_sampler is None:
+            self.dataloader_train= DataLoader(train_dataset, batch_size= self.batch_size,
+                                            collate_fn= self.collate, shuffle= self.shuffle,
+                                            num_workers= self.num_workers, pin_memory= self.pin_memory, 
+                                            prefetch_factor= self.prefetch_factor, persistent_workers= self.persistent_workers)
+        else:
+            self.dataloader_train= self._setup_sampler(train_dataset, batch_size= self.batch_size,
+                                            collate_fn= self.collate, shuffle= self.shuffle,
+                                            num_workers= self.num_workers, pin_memory= self.pin_memory, 
+                                            prefetch_factor= self.prefetch_factor, persistent_workers= self.persistent_workers)
         if self.data_eval: 
             self.dataloader_eval= DataLoader(eval_dataset, batch_size= self.batch_size,
                                              collate_fn= self.collate, shuffle= False)
@@ -289,7 +301,12 @@ Please read the supported loss functions carefully")
 class _TrainerLLM(_Trainer):
     def __init__(self, model, argument_train: Type[ArgumentTrain], argument_dataset: Type[ArgumentDataset]):
         super().__init__(model, argument_train= argument_train, argument_dataset= argument_dataset)
-        
+    
+    def _setup_sampler(self, data):
+        bsl= RandomBatchSampler(dataset= data, batch_size= self.batch_size, drop_last= self.drop_last)
+        return DataLoader(data, collate_fn= self.collate, num_workers= self.num_workers, pin_memory= self.pin_memory, 
+                        batch_sampler= bsl, prefetch_factor= self.prefetch_factor, persistent_workers= self.persistent_workers)
+    
     def _setup_addtion_config(self):
         self.collate= GenAnsCollate(self.model_lm.tokenizer, self.max_length, self.advance_config_encode)
 
@@ -305,7 +322,6 @@ class _TrainerLLM(_Trainer):
         loss= self.model_lm(input_ids= data['x_ids'].to(self.device, non_blocking=True), 
                           attention_mask= data['x_mask'].to(self.device, non_blocking=True), 
                           labels= data['label'].to(self.device, non_blocking=True)).loss
-        
         return loss 
         
     def _evaluate(self): 
@@ -326,6 +342,11 @@ class _TrainerBiEncoder(_Trainer):  ## support
     def __init__(self, model, argument_train: Type[ArgumentTrain], argument_dataset: Type[ArgumentDataset]):
         
         super().__init__(model, argument_train= argument_train, argument_dataset= argument_dataset)
+        
+    def _setup_sampler(self, data):
+        bsl= NoDuplicatesBatchSampler(dataset= data, batch_size= self.batch_size, shuffle= True, drop_last= self.drop_last, obverse= 'query_positive')
+        return DataLoader(data, collate_fn= self.collate, num_workers= self.num_workers, pin_memory= self.pin_memory, 
+                        batch_sampler= bsl, prefetch_factor= self.prefetch_factor, persistent_workers= self.persistent_workers)
         
     def _setup_addtion_config(self):
         self.loss= self._select_loss_functon(self.loss_function)
@@ -400,7 +421,12 @@ class _TrainerCrossEncoder(_Trainer):
     def __init__(self, model, argument_train: Type[ArgumentTrain], argument_dataset: Type[ArgumentDataset]):
         
         super().__init__(model, argument_train= argument_train, argument_dataset= argument_dataset)
-        
+
+    def _setup_sampler(self, data):
+        bsl= NoDuplicatesBatchSampler(dataset= data, batch_size= self.batch_size, shuffle= True, drop_last= self.drop_last, obverse= 'query_positive')
+        return DataLoader(data, collate_fn= self.collate, num_workers= self.num_workers, pin_memory= self.pin_memory, 
+                        batch_sampler= bsl, prefetch_factor= self.prefetch_factor, persistent_workers= self.persistent_workers)      
+
     def _setup_addtion_config(self):
         self.loss= self._select_loss_functon(self.loss_function)
         
