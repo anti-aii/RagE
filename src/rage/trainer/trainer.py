@@ -120,10 +120,7 @@ class _Trainer:
                                             num_workers= self.num_workers, pin_memory= self.pin_memory, 
                                             prefetch_factor= self.prefetch_factor, persistent_workers= self.persistent_workers)
         else:
-            self.dataloader_train= self._setup_sampler(train_dataset, batch_size= self.batch_size,
-                                            collate_fn= self.collate, shuffle= self.shuffle,
-                                            num_workers= self.num_workers, pin_memory= self.pin_memory, 
-                                            prefetch_factor= self.prefetch_factor, persistent_workers= self.persistent_workers)
+            self.dataloader_train= self._setup_sampler(train_dataset)
         if self.data_eval: 
             self.dataloader_eval= DataLoader(eval_dataset, batch_size= self.batch_size,
                                              collate_fn= self.collate, shuffle= False)
