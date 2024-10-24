@@ -4,7 +4,7 @@ from .models import (
     LLM
 )
 
-from .trainer.argument import ArgumentDataset, ArgumentTrain 
+from .trainer.argument import ArgumentDataset, ArgumentTrain, ArgumentMixTrainDataset
 
 from .utils import (
     NoiseMask, 
@@ -20,4 +20,4 @@ from .utils import (
 #     GenAnsCollate
 # )
 
-__version__= "1.1.1dev"
+__version__= "1.2.0dev"

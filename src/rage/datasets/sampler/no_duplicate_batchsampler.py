@@ -43,16 +43,15 @@ class NoDuplicatesBatchSampler(Sampler):
         
         while len(index_dataset) > 0: 
             idx, index_dataset= index_dataset[0], index_dataset[1:]
-            
             if self.obverse=='query': 
-                example= self.dataset.__getitem__(idx)[0] # obverse on anchor or query
+                example= self.dataset.__getitem__(idx.item())[0] # obverse on anchor or query
             elif self.obverse=='query_positive': 
-                example= '<type>'.join(self.dataset.__getitem__(idx)[:1])
+                example= '<type>'.join(self.dataset.__getitem__(idx.item())[:1])
             
             if example.strip().lower() in text_in_batch:
-                duplicate_queue.append(idx)
+                duplicate_queue.append(idx.item())
             else: 
-                batch_index.append(idx)
+                batch_index.append(idx.item())
                 text_in_batch.add(example.strip().lower())
 
             if self.drop_last and (len(index_dataset) ==0 and len(batch_index) < self.batch_size):

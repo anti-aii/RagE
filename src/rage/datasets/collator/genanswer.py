@@ -37,7 +37,11 @@ class GenAnsCollate:
         self.tokenizer= tokenizer 
 
     self.max_length= max_length
-    self.advance_config_encode= advance_config_encode
+    if advance_config_encode is None: 
+      self.advance_config_encode= dict()
+    else:
+      self.advance_config_encode= advance_config_encode
+      
     self.tokenizer.padding_side= 'left'
   
   def __call__(self, data): 

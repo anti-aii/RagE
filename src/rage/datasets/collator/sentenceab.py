@@ -86,9 +86,13 @@ class SentABCollate:
         
         self.mode= mode
         self.max_length= max_length
-        self.advance_config_encode= advance_config_encode
         self.augument_func= augment_func
-        self.task= task 
+        self.task= task
+        
+        if advance_config_encode is None: 
+            self.advance_config_encode= dict()
+        else: 
+            self.advance_config_encode= advance_config_encode
 
     def _tokenize(self, list_text):
         x= self.tokenizer.batch_encode_plus(list_text, 

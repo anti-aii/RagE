@@ -114,7 +114,7 @@ class _Trainer:
 
     def _setup_dataloader(self): 
         train_dataset, eval_dataset= self._setup_dataset()
-        if self.batch_sampler is None:
+        if self.batch_sampler:
             self.dataloader_train= DataLoader(train_dataset, batch_size= self.batch_size,
                                             collate_fn= self.collate, shuffle= self.shuffle,
                                             num_workers= self.num_workers, pin_memory= self.pin_memory, 
