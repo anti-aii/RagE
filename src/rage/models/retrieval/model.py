@@ -2,6 +2,8 @@ from typing import List, Type, Union, Optional
 import numpy as np 
 import torch 
 import torch.nn as nn 
+import onnx 
+import onnxruntime
 from transformers import  AutoTokenizer, PreTrainedTokenizer, PreTrainedTokenizerFast
 
 from ...trainer.argument import ArgumentDataset, ArgumentTrain
@@ -11,10 +13,11 @@ from ...utils import Progbar
 from ...utils.convert_data import _convert_data
 from ..model_rag import ModelRag
 from ..model_infer import InferModel
+from ...convert_to.onnx import OnnxSupport
 
 
 
-class SentenceEmbedding(ModelRag, InferModel):
+class SentenceEmbedding(ModelRag, InferModel, OnnxSupport):
     def __init__(
         self, 
         model_name= 'vinai/phobert-base-v2', 
@@ -162,6 +165,75 @@ class SentenceEmbedding(ModelRag, InferModel):
             return x 
         
         raise ValueError("Input Error")
+    
+    def _reforward_regression_for_onnx(self, input_ids_1, attention_mask_1, input_ids_2, attention_mask_2):
+        inputs_1= {'input_ids': input_ids_1, 'attnetion_mask': attention_mask_1}
+        inputs_2= {'input_ids': input_ids_2, 'attention_mask': attention_mask_2}
+        x_left = self.get_embedding(inputs_1)
+        x_right= self.get_embedding(inputs_2)
+        x = torch.concat((x_left, x_right, torch.norm(x_right - x_left, p= 2, dim= -1).view(-1, 1)), dim= -1)
+        x = self.drp2(x)
+        x = self.fc(x)
+        return x 
+    
+    def _reforward_embedding_for_onnx(self, input_ids, attention_mask): 
+        inputs= {'input_ids': input_ids, 'attention_mask': attention_mask}
+        return self.get_embedding(inputs)
+    
+    def export_onnx(self, type: str= 'embedding', output_name= 'model.onnx', opset_version= 17):
+        assert type in ['embedding', 'regression'] 
+        self.eval()
+        example_sentence= ['This is a sentence!']
+        self.temp_forward= self.forward
+        
+        if type == 'embedding': 
+            self.forward= self._reforward_embedding_for_onnx
+            inputs= self.tokenizer.batch_encode_plus(example_sentence, max_length= 128, return_tensors= 'pt')
+            args= {'input_ids': inputs['input_ids'], 'attention_mask': inputs['attention_mask']}
+            with torch.no_grad():
+                torch.onnx.export(
+                    self, 
+                    args= args, 
+                    f= output_name, 
+                    input_names= ['input_ids', 'attention_mask'], 
+                    output_names=['output'], 
+                    opset_version= opset_version, 
+                    export_params= True,
+                    do_constant_folding= True, 
+                    # verbose= True,
+                    dynamic_axes= {
+                        'input_ids': {0: "batch_size", 1: "seq_length"}, 
+                        'attention_mask': {0: 'batch_size', 1: "seq_length"},
+                        "output": {0: "batch_size"}
+                    }
+                )
+        else: 
+            self.forward= self._reforward_regression_for_onnx
+            inputs_1= self.tokenizer.batch_encode_plus(example_sentence, max_length= 128, return_tensors= 'pt')
+            inputs_2= self.tokenizer.batch_encode_plus(example_sentence, max_length= 128, return_tensors= 'pt')
+            args= {'input_ids_1': inputs_1['input_ids'], 'attention_mask_1': inputs_1['attention_mask'],
+                   'input_ids_2': inputs_2['input_ids'], 'attention_mask_2': inputs_2['attention_mask']}
+            with torch.no_grad():
+                torch.onnx.export(
+                    self, 
+                    args= args, 
+                    f= output_name, 
+                    input_names= ['input_ids_1', 'attention_mask_1', 'input_ids_2', 'attention_mask_2'], 
+                    output_names=['output'], 
+                    opset_version= opset_version, 
+                    export_params= True,
+                    do_constant_folding= True, 
+                    # verbose= True,
+                    dynamic_axes= {
+                        'input_ids_1': {0: "batch_size", 1: "seq_length"}, 
+                        'attention_mask_1': {0: 'batch_size', 1: "seq_length"},
+                        'input_ids_2': {0: "batch_size", 1: "seq_length"}, 
+                        'attention_mask_2': {0: 'batch_size', 1: "seq_length"},
+                        "output": {0: "batch_size"}
+                    }
+                )
+        
+        self.forward= self.temp_forward
     
     def _preprocess(self): 
         if self.training: 
