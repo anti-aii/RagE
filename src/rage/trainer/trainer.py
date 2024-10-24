@@ -114,7 +114,7 @@ class _Trainer:
 
     def _setup_dataloader(self): 
         train_dataset, eval_dataset= self._setup_dataset()
-        if self.batch_sampler:
+        if not self.batch_sampler:
             self.dataloader_train= DataLoader(train_dataset, batch_size= self.batch_size,
                                             collate_fn= self.collate, shuffle= self.shuffle,
                                             num_workers= self.num_workers, pin_memory= self.pin_memory, 
@@ -376,9 +376,9 @@ class _TrainerBiEncoder(_Trainer):  ## support
             )
         
         elif self.loss.task_name  == EMBEDDING_IN_BATCH_NEGATIVES: 
-            mini_data=[data['anchor'], data['pos'], data['neg']] 
+            mini_data=[data['anchor'], data['pos'], data['hard_neg_1']] 
             if len(data) > 2: 
-                for i in range(len(data)-2): 
+                for i in range(1, len(data)-2): 
                     mini_data.append(data[f'hard_neg_{i+1}'])
 
             data= self._take_future(

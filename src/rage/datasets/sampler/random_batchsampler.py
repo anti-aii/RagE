@@ -29,8 +29,8 @@ class RandomBatchSampler(Sampler):
         batch_index= []
         
         while len(index_dataset) > 0:
-            idx, index_dataset= index_dataset[0], index_dataset[1:]
-            batch_index.append(idx.item())
+            idx, index_dataset= int(index_dataset[0].item()), index_dataset[1:]
+            batch_index.append(idx)
             
             if self.drop_last and (len(index_dataset) ==0 and len(batch_index) < self.batch_size):
                 break 
