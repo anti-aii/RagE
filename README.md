@@ -20,7 +20,7 @@ pip install -e .
 We have detailed instructions for using our models for inference. See [notebook](notebook)
 ### 1. Initialize the model
 <a name= 'initialize_model'></a>
-Let's initalize the SentenceEmbedding model  
+Let's initialize the SentenceEmbedding model  
 
 ```python
 >>> import torch 
