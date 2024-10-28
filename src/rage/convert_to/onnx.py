@@ -1,4 +1,4 @@
-from typing import Optional, List, Type, Union
+from typing import Optional, List, Type, Union, Iterable
 import time
 import numpy as np 
 import onnx
@@ -7,6 +7,9 @@ import random
 from ..utils.process_bar import Progbar
 from ..utils.wrapper import not_allowed
 from abc import abstractmethod
+
+def sigmoid(x):
+    return 1 / (1 + np.exp(-x))
 
 class OnnxSupport: 
     def __init__(self):
@@ -121,7 +124,6 @@ class SentenceEmbeddingOnnx(OnnxSupport):
         if isinstance(text, str): 
             text= [text]
         
-        self._preprocess()
         if batch_size > len(text): 
             batch_size= len(text)
 
@@ -137,3 +139,57 @@ class SentenceEmbeddingOnnx(OnnxSupport):
             pbi.add(len(batch))
 
         return np.asarray(embeddings)
+    
+class ReRankerOnnx(OnnxSupport): 
+    def __init__(self, session, tokenizer):
+        self.session_onnx= session
+        self.tokenizer= tokenizer
+        
+    def _preprocess_tokenize(
+        self, 
+        text, 
+        max_legnth= 256, 
+        advance_config_encode: dict= None): 
+        # 256 phobert, t5 512 
+        inputs= self.tokenizer.batch_encode_plus(text, return_tensors= 'np', 
+                padding= 'longest', max_length= max_legnth, truncation= True, 
+                **advance_config_encode)
+        return inputs
+
+    def _execute_per_batch(
+        self, 
+        text: List[str], 
+        max_length= 256, 
+        advance_config_encode: Optional[dict]= None,
+    ):
+        batch_text= list(map(lambda x: self.tokenizer.sep_token.join([x[0], x[1]]), text))
+        inputs= self._preprocess_tokenize(batch_text, max_length, advance_config_encode)
+        embedding= self.run(data= {'input_ids': inputs['input_ids'].numpy(), 
+                                   'attention_mask': inputs['attention_mask'].numpy()})[0]
+        return sigmoid(embedding)
+    def rank(
+        self, 
+        text: Iterable[List[str]], 
+        batch_size= 64, 
+        max_length= 256, 
+        advance_config_encode: Optional[dict]= None,
+        verbose= 1
+    ):  # [[a, b], [c, d]]
+        results= [] 
+        advance_config_encode = advance_config_encode or {} 
+
+        if batch_size > len(text):
+            batch_size= len(text)
+
+        batch_text= np.array_split(text, len(text)// batch_size)
+        pbi= Progbar(len(text), verbose= verbose, unit_name= "Sample")
+
+        for batch in batch_text: 
+            results.append(self._execute_per_batch(
+                batch.tolist(), 
+                max_length, 
+                advance_config_encode))
+
+            pbi.add(len(batch))
+
+        return np.asarray(results)

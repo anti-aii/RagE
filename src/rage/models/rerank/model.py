@@ -3,7 +3,7 @@ import numpy as np
 import torch 
 import torch.nn as nn 
 from transformers import AutoTokenizer, PreTrainedTokenizer, PreTrainedTokenizerFast
-
+from datasets import load_dataset
 
 from ...trainer.argument import ArgumentDataset, ArgumentTrain
 from ..model_rag import ModelRag
@@ -12,11 +12,10 @@ from ...trainer.trainer import _TrainerCrossEncoder
 from ..componets import ExtraRoberta, selective_model_base, PoolingStrategy
 from ...utils.process_bar import Progbar
 from ...utils.convert_data import _convert_data 
-
+from ...convert_to.onnx import OnnxSupport, ReRankerOnnx
 
 ### Cross-encoder
-class Reranker(ModelRag, InferModel): 
-    # using 
+class Reranker(ModelRag, InferModel, OnnxSupport): 
     def __init__(
         self, 
         model_name: str= 'vinai/phobert-base-v2', 
@@ -141,6 +140,44 @@ class Reranker(ModelRag, InferModel):
         x= self.fc(x)
 
         return x
+    
+    def export_onnx(self, output_name= 'model.onnx', opset_version= 17):
+        self.eval()
+        example_sentence= ['This is a sentence!']
+        inputs= self._preprocess_tokenize(example_sentence)
+        args= {'input_ids': inputs['input_ids'], 'attention_mask': inputs['attention_mask']}
+        with torch.no_grad():
+            torch.onnx.export(
+                self, 
+                args= args, 
+                f= output_name, 
+                input_names= ['input_ids', 'attention_mask'], 
+                output_names=['output'], 
+                opset_version= opset_version, 
+                export_params= True,
+                do_constant_folding= True, 
+                # verbose= True,
+                dynamic_axes= {
+                    'input_ids': {0: "batch_size", 1: "seq_length"}, 
+                    'attention_mask': {0: 'batch_size', 1: "seq_length"},
+                    "output": {0: "batch_size"}
+                }
+            )
+        print('**** DONE ****')
+        self.forward= self.temp_forward
+        # run check graph
+        self._check_graph(output_name)
+        
+        # run test performance 
+        dataset= load_dataset("anti-ai/ViNLI-SimCSE-supervised_v2", split="train[:1%]")['anchor']
+        self._runtime_onnx(output_name= output_name)
+        self._test_performance(dataset, tokenizer_function= self._preprocess_tokenize)  
+
+        @classmethod
+        def load_onnx(cls, model_path: str= 'model.onnx'): 
+            cls._runtime_onnx(model_path)
+            
+            return ReRankerOnnx(cls.session_onnx, cls.tokenizer)
 
     def _preprocess(self):
         if self.training: 
