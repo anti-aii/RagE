@@ -176,7 +176,7 @@ class SentenceEmbedding(ModelRag, InferModel, OnnxSupport):
     def export_onnx(self,  output_name= 'model.onnx', opset_version= 17):
         self.eval()
         example_sentence= ['This is a sentence!']
-        self.temp_forward= self.forward
+        temp_forward= self.forward
     
         self.forward= self._reforward_embedding_for_onnx
         inputs= self._preprocess_tokenize(example_sentence)
@@ -199,7 +199,7 @@ class SentenceEmbedding(ModelRag, InferModel, OnnxSupport):
                 }
             )
         print('**** DONE ****')
-        self.forward= self.temp_forward
+        self.forward= temp_forward
         # run check graph
         self._check_graph(output_name)
         
@@ -209,10 +209,9 @@ class SentenceEmbedding(ModelRag, InferModel, OnnxSupport):
         self._test_performance(dataset, tokenizer_function= self._preprocess_tokenize)     
     
     @classmethod
-    def load_onnx(cls, model_path: str= 'model.onnx'): 
-        cls._runtime_onnx(model_path)
-        
-        return SentenceEmbeddingOnnx(cls.session_onnx, cls.tokenizer)
+    def load_onnx(cls, model_path: str, tokenizer_name: str= 'vinai/phobert-base-v2'): 
+        tokenizer= AutoTokenizer.from_pretrained(tokenizer_name, add_prefix_space= True, use_fast= True)
+        return SentenceEmbeddingOnnx(model_path, tokenizer)
         
     def _preprocess(self): 
         if self.training: 

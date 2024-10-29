@@ -4,6 +4,7 @@ import numpy as np
 import onnx
 import onnxruntime
 import random
+from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
 from ..utils.process_bar import Progbar
 from ..utils.wrapper import not_allowed
 from abc import abstractmethod
@@ -11,11 +12,7 @@ from abc import abstractmethod
 def sigmoid(x):
     return 1 / (1 + np.exp(-x))
 
-class OnnxSupport: 
-    def __init__(self):
-        self.session_onnx= None
-        self.temp_forward= None 
-    
+class OnnxSupport:         
     @abstractmethod
     def export_onnx(self): 
     # only support for SentenceEmbedding and ReRanker
@@ -25,7 +22,7 @@ class OnnxSupport:
     def _check_graph(self, output_name= 'model.onnx'): 
         model= onnx.load(output_name)
         onnx.checker.check_model(model)
-        onnx.helper.printable_graph(model.graph)
+        print(onnx.helper.printable_graph(model.graph))
 
     def _test_performance(self, data, tokenizer_function):
         """test with actual data  (inference time)"""
@@ -50,16 +47,20 @@ class OnnxSupport:
         print("Total inference time = {} ms".format(format(sum(latency) * 1000), '.2f'))
         
     def _runtime_onnx(self, output_name= 'model.onnx'):
-        self.session_onnx= onnxruntime.InferenceSession(output_name,
-                    provider_options= ['CUDAExecutionProvider', 'CPUExecutionProvider'])       
+        session_options= onnxruntime.SessionOptions()
+        session_options.graph_optimization_level = onnxruntime.GraphOptimizationLevel.ORT_ENABLE_ALL
+        session_options.optimized_model_filepath = "optimized_model.onnx"
+        self.session_onnx= onnxruntime.InferenceSession(output_name, session_options, provider_options= ['CUDAExecutionProvider', 'CPUExecutionProvider'])       
     
     def run(self, data):
         self.session_onnx.run(None, data)
 
 class SentenceEmbeddingOnnx(OnnxSupport):
-    def __init__(self, session, tokenizer): 
-        self.session_onnx= session
+    def __init__(self, model_path: str, tokenizer: Union[Type[PreTrainedTokenizerFast], Type[PreTrainedTokenizer]]): 
+        super(SentenceEmbeddingOnnx, self).__init__()
         self.tokenizer= tokenizer
+        
+        self._runtime_onnx(model_path)
         
     def _preprocess_tokenize(
         self, 
@@ -141,9 +142,11 @@ class SentenceEmbeddingOnnx(OnnxSupport):
         return np.asarray(embeddings)
     
 class ReRankerOnnx(OnnxSupport): 
-    def __init__(self, session, tokenizer):
-        self.session_onnx= session
+    def __init__(self, model_path: str, tokenizer: Union[Type[PreTrainedTokenizerFast], Type[PreTrainedTokenizer]]):
+        super(ReRankerOnnx, self).__init__()
         self.tokenizer= tokenizer
+        
+        self._runtime_onnx(model_path)
         
     def _preprocess_tokenize(
         self, 
@@ -164,6 +167,7 @@ class ReRankerOnnx(OnnxSupport):
     ):
         batch_text= list(map(lambda x: self.tokenizer.sep_token.join([x[0], x[1]]), text))
         inputs= self._preprocess_tokenize(batch_text, max_length, advance_config_encode)
+        
         embedding= self.run(data= {'input_ids': inputs['input_ids'].numpy(), 
                                    'attention_mask': inputs['attention_mask'].numpy()})[0]
         return sigmoid(embedding)

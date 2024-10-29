@@ -173,11 +173,10 @@ class Reranker(ModelRag, InferModel, OnnxSupport):
         self._runtime_onnx(output_name= output_name)
         self._test_performance(dataset, tokenizer_function= self._preprocess_tokenize)  
 
-        @classmethod
-        def load_onnx(cls, model_path: str= 'model.onnx'): 
-            cls._runtime_onnx(model_path)
-            
-            return ReRankerOnnx(cls.session_onnx, cls.tokenizer)
+    @classmethod
+    def load_onnx(cls, model_path: str, tokenizer_name: str= 'vinai/phobert-base-v2'): 
+        tokenizer= AutoTokenizer.from_pretrained(tokenizer_name, add_prefix_space= True, use_fast= True)
+        return ReRankerOnnx(model_path, tokenizer)
 
     def _preprocess(self):
         if self.training: 
