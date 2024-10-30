@@ -7,6 +7,7 @@ import random
 from transformers import PreTrainedTokenizer, PreTrainedTokenizerFast
 from ..utils.process_bar import Progbar
 from ..utils.wrapper import not_allowed
+from ..utils.convert_time_humanize import convert_time_humanize
 from abc import abstractmethod
 
 def sigmoid(x):
@@ -43,8 +44,8 @@ class OnnxSupport:
             values= [('time', latency_r_time)]
             pb.add(random_number, values= values)
             
-        print("Average inference time = {} ms".format(format(sum(latency) * 1000 / len(latency), '.2f')))
-        print("Total inference time = {} ms".format(format(sum(latency) * 1000), '.2f'))
+        print("Average inference time: {}".format(convert_time_humanize(sum(latency) * 1000 / len(latency))))
+        print("Total inference time: {}".format(convert_time_humanize(sum(latency) * 1000)))
         
     def _runtime_onnx(self, output_name= 'model.onnx'):
         session_options= onnxruntime.SessionOptions()
@@ -53,7 +54,7 @@ class OnnxSupport:
         self.session_onnx= onnxruntime.InferenceSession(output_name, session_options, provider_options= ['CUDAExecutionProvider', 'CPUExecutionProvider'])       
     
     def run(self, data):
-        self.session_onnx.run(None, data)
+        return self.session_onnx.run(None, data)[0]
 
 class SentenceEmbeddingOnnx(OnnxSupport):
     def __init__(self, model_path: str, tokenizer: Union[Type[PreTrainedTokenizerFast], Type[PreTrainedTokenizer]]): 
@@ -61,6 +62,10 @@ class SentenceEmbeddingOnnx(OnnxSupport):
         self.tokenizer= tokenizer
         
         self._runtime_onnx(model_path)
+    
+    @not_allowed
+    def export_onnx(self):
+        pass 
         
     def _preprocess_tokenize(
         self, 
@@ -91,8 +96,8 @@ class SentenceEmbeddingOnnx(OnnxSupport):
         normalize_embedding= None
     ):
         inputs= self._preprocess_tokenize(text, max_length, advance_config_encode)
-        embedding= self.run(data= {'input_ids': inputs['input_ids'].numpy(), 
-                                   'attention_mask': inputs['attention_mask'].numpy()})[0]
+        embedding= self.run(data= {'input_ids': inputs['input_ids'], 
+                                   'attention_mask': inputs['attention_mask']})
         if normalize_embedding: 
             return self._normalize_embedding(embedding, norm= normalize_embedding)
         
@@ -147,6 +152,10 @@ class ReRankerOnnx(OnnxSupport):
         self.tokenizer= tokenizer
         
         self._runtime_onnx(model_path)
+    
+    @not_allowed
+    def export_onnx(self):
+        pass
         
     def _preprocess_tokenize(
         self, 
@@ -168,8 +177,8 @@ class ReRankerOnnx(OnnxSupport):
         batch_text= list(map(lambda x: self.tokenizer.sep_token.join([x[0], x[1]]), text))
         inputs= self._preprocess_tokenize(batch_text, max_length, advance_config_encode)
         
-        embedding= self.run(data= {'input_ids': inputs['input_ids'].numpy(), 
-                                   'attention_mask': inputs['attention_mask'].numpy()})[0]
+        embedding= self.run(data= {'input_ids': inputs['input_ids'], 
+                                   'attention_mask': inputs['attention_mask']})
         return sigmoid(embedding)
     def rank(
         self, 

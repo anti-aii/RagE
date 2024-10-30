@@ -15,7 +15,8 @@ pip install -e .
 - [1. Initialize the model](#initialize_model)
 - [2. Load model from Huggingface Hub](#download_hf)
 - [3. Training](#training)
-- [4. List of pretrained models](#list_pretrained)
+- [4. ONNX](#onnx)
+- [5. List of pretrained models](#list_pretrained)
 
 We have detailed instructions for using our models for inference. See [notebook](notebook)
 ### 1. Initialize the model
@@ -75,7 +76,36 @@ Then, we encode the input sentences and compare their similarity.
 We have some examples of training for SentenceEmbedding, ReRanker, and LLM models. Additionally, you can rely on the optimal parameters we used for specific tasks and datasets. See [examples](examples)
 <a name= 'training'></a>
 
-### 9. List of pretrained models
+### 4. ONNX
+<a name= 'onnx'></a>
+It is now possible to export SentenceEmbedding and ReRanker models to the ONNX format. We also provide an API for easy usage.
+
+We can export to .onnx format with the `export_onnx` function. Note that it is only supported for the `SentenceEmbedding` and `ReRanker` classes.
+```python
+>>> model.export_onnx('model.onnx', opset_version= 17, test_performance= True)
+**** DONE ****
+2024-10-30 17:20:29.981403140 [W:onnxruntime:, inference_session.cc:2039 Initialize] Serializing optimized model with Graph Optimization level greater than ORT_ENABLE_EXTENDED and the NchwcTransformer enabled. The generated model may contain hardware specific optimizations, and should only be used in the same environment the model was optimized in.
+******** Test Performance ********
+2774/2756 [==============================] - 143s 52ms/step - time: 0.7818
+Average inference time: 1.70 seconds
+Total inference time: 2 minutes and 22.39 seconds
+```
+
+To use `SentenceEmbedding` or `ReRanker` models in ONNX format, you can use the load_onnx method to return objects of the corresponding `SentenceEmbeddingOnnx` or `ReRankerOnnx` classes.
+
+```python
+>>> model_onnx= SentenceEmbedding.load_onnx('model.onnx')
+2024-10-30 10:50:22.721487149 [W:onnxruntime:, inference_session.cc:2039 Initialize] Serializing optimized model with Graph Optimization level greater than ORT_ENABLE_EXTENDED and the NchwcTransformer enabled. The generated model may contain hardware specific optimizations, and should only be used in the same environment the model was optimized in.
+>>> model_onnx.encode(['xin chào', 'bạn tên là gì ạ?'])
+2/2 [==============================] - 0s 14ms/Sample
+array([[[ 0.19600058,  0.0093571 , -0.20171645, ..., -0.12414521,
+          0.1908756 , -0.02904402],
+        [ 0.07333153,  0.07584963, -0.01428957, ..., -0.0851631 ,
+          0.14394096, -0.28628293]]], dtype=float32)
+```
+
+
+### 5. List of pretrained models
 <a name= 'list_pretrained'></a>
 This list will be updated with our prominent models. Our models will primarily aim to support Vietnamese language.
 Additionally, you can access our datasets and pretrained models by visiting https://huggingface.co/anti-ai.

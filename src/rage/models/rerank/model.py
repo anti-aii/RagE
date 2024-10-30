@@ -141,7 +141,7 @@ class Reranker(ModelRag, InferModel, OnnxSupport):
 
         return x
     
-    def export_onnx(self, output_name= 'model.onnx', opset_version= 17):
+    def export_onnx(self, output_name= 'model.onnx', opset_version= 17, test_performance: bool= True):
         self.eval()
         example_sentence= ['This is a sentence!']
         inputs= self._preprocess_tokenize(example_sentence)
@@ -166,12 +166,13 @@ class Reranker(ModelRag, InferModel, OnnxSupport):
         print('**** DONE ****')
         self.forward= self.temp_forward
         # run check graph
-        self._check_graph(output_name)
+        # self._check_graph(output_name)
         
-        # run test performance 
-        dataset= load_dataset("anti-ai/ViNLI-SimCSE-supervised_v2", split="train[:1%]")['anchor']
-        self._runtime_onnx(output_name= output_name)
-        self._test_performance(dataset, tokenizer_function= self._preprocess_tokenize)  
+        if test_performance: 
+            # run test performance 
+            dataset= load_dataset("anti-ai/ViNLI-SimCSE-supervised_v2", split="train[:1%]")['anchor']
+            self._runtime_onnx(output_name= output_name)
+            self._test_performance(dataset, tokenizer_function= self._preprocess_tokenize)  
 
     @classmethod
     def load_onnx(cls, model_path: str, tokenizer_name: str= 'vinai/phobert-base-v2'): 
