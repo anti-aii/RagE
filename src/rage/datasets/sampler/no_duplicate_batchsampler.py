@@ -24,50 +24,35 @@ class NoDuplicatesBatchSampler(Sampler):
         self, 
         data
     ): 
-        seed = int(torch.empty((), dtype=torch.int64).random_().item())
-        generator = torch.Generator()
-        generator.manual_seed(seed)
-        
-        return torch.randperm(len(data), dtype= torch.int64, generator= generator)
-    
-    def __iter__(self):
-        if self.shuffle:    
-            index_dataset= self.shuffle_index(self.dataset)
-        else: 
-            index_dataset= torch.arange(len(self.dataset), dtype= torch.int64)
-            
-        batch_index= []
-        duplicate_queue= []
-        data_point= 0 
-        text_in_batch= set()
-        
-        while len(index_dataset) > 0: 
-            idx, index_dataset= int(index_dataset[0].item()), index_dataset[1:]
-            if self.obverse=='query': 
-                example= list(self.dataset.__getitem__(idx)[0]) # obverse on anchor or query
-            elif self.obverse=='query_positive': 
-                example= '<type>'.join(list(self.dataset.__getitem__(idx))[:1])
-            
-            if example.strip().lower() in text_in_batch:
-                duplicate_queue.append(idx)
-            else: 
-                batch_index.append(idx)
-                text_in_batch.add(example.strip().lower())
+        generator = torch.Generator().manual_seed(int(torch.empty((), dtype=torch.int64).random_().item()))
+        return torch.tensor(data)[torch.randperm(len(data), generator=generator)].tolist()
 
-            if self.drop_last and (len(index_dataset) ==0 and len(batch_index) < self.batch_size):
-                break 
+    
+    def __iter__(self):    
+        index_dataset= torch.arange(len(self.dataset), dtype= torch.int64).tolist()
+        if self.shuffle: 
+            self.shuffle_index(index_dataset)
+            
+        batch_index, text_in_batch= [], set()
+    
+        while index_dataset: 
+            idx= index_dataset.pop(0)
+            example = list(self.dataset[idx])[0].strip().lower() if self.obverse == 'query' else '<type>'.join(list(self.dataset[idx])[:1]).strip().lower()
+            
+            if example in text_in_batch:
+                continue
+
+            batch_index.append(idx)
+            text_in_batch.add(example)
 
             if len(batch_index)== self.batch_size: 
                 yield batch_index
-                batch_index= []
-                text_in_batch= set()
-                index_dataset= torch.cat((index_dataset, torch.tensor(duplicate_queue)))
-                index_dataset= index_dataset[self.shuffle_index(index_dataset)]
+                batch_index, text_in_batch= [], set()
+                self.shuffle_index(index_dataset)
+        
+        if not self.drop_last and batch_index: 
+            yield batch_index
             
-            data_point+= 1
-            if data_point >= self.batch_size: 
-                data_point= 0
-                index_dataset= index_dataset[self.shuffle_index(index_dataset)]
 
     def __len__(self): 
         return math.ceil(len(self.dataset)/self.batch_size)
