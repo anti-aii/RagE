@@ -31,7 +31,7 @@ class NoDuplicatesBatchSampler(Sampler):
     def __iter__(self):    
         index_dataset= torch.arange(len(self.dataset), dtype= torch.int64).tolist()
         if self.shuffle: 
-            self.shuffle_index(index_dataset)
+            index_dataset= self.shuffle_index(index_dataset)
             
         batch_index, text_in_batch= [], set()
     
@@ -48,7 +48,7 @@ class NoDuplicatesBatchSampler(Sampler):
             if len(batch_index)== self.batch_size: 
                 yield batch_index
                 batch_index, text_in_batch= [], set() 
-                self.shuffle_index(index_dataset)
+                index_dataset= self.shuffle_index(index_dataset)
         
         if not self.drop_last and batch_index: 
             yield batch_index
