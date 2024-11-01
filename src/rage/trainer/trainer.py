@@ -341,7 +341,7 @@ class _TrainerBiEncoder(_Trainer):  ## support
         super().__init__(model, argument_train= argument_train, argument_dataset= argument_dataset)
         
     def _setup_sampler(self, data):
-        bsl= NoDuplicatesBatchSampler(dataset= data, batch_size= self.batch_size, shuffle= True, drop_last= self.drop_last, obverse= 'query_positive')
+        bsl= NoDuplicatesBatchSampler(dataset= data, batch_size= self.batch_size, shuffle= True, drop_last= self.drop_last, obverse= 'query')
         return DataLoader(data, collate_fn= self.collate, num_workers= self.num_workers, pin_memory= self.pin_memory, 
                         batch_sampler= bsl, prefetch_factor= self.prefetch_factor, persistent_workers= self.persistent_workers)
         
@@ -420,7 +420,7 @@ class _TrainerCrossEncoder(_Trainer):
         super().__init__(model, argument_train= argument_train, argument_dataset= argument_dataset)
 
     def _setup_sampler(self, data):
-        bsl= NoDuplicatesBatchSampler(dataset= data, batch_size= self.batch_size, shuffle= True, drop_last= self.drop_last, obverse= 'query_positive')
+        bsl= NoDuplicatesBatchSampler(dataset= data, batch_size= self.batch_size, shuffle= True, drop_last= self.drop_last, obverse= 'query')
         return DataLoader(data, collate_fn= self.collate, num_workers= self.num_workers, pin_memory= self.pin_memory, 
                         batch_sampler= bsl, prefetch_factor= self.prefetch_factor, persistent_workers= self.persistent_workers)      
 
