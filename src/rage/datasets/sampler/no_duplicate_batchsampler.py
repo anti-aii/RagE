@@ -47,7 +47,7 @@ class NoDuplicatesBatchSampler(Sampler):
 
             if len(batch_index)== self.batch_size: 
                 yield batch_index
-                batch_index, text_in_batch= [], set()
+                batch_index, text_in_batch= [], set() 
                 self.shuffle_index(index_dataset)
         
         if not self.drop_last and batch_index: 
